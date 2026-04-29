@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { addCommentAction, transferToMarketingAction } from "@/app/(private)/cases/actions";
+import { addCommentAction, transferToMarketingAction, uploadCaseFileAction } from "@/app/(private)/cases/actions";
 import { CaseForm } from "@/components/cases/case-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, getMetadataText } from "@/lib/cases/format";
+import type { CaseFileRow } from "@/lib/cases/files";
+import type { ScoringResult } from "@/lib/cases/scoring";
 import type { CaseActivity, CaseComment, CaseRow, DirectoryOption } from "@/lib/cases/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -24,6 +26,7 @@ const successMessages: Record<string, string> = {
   updated: "Зміни збережено.",
   comment: "Коментар додано.",
   transfer: "Кейс передано в маркетинг зі статусом «Перевірити».",
+  file_uploaded: "Файл додано.",
 };
 
 const errorMessages: Record<string, string> = {
@@ -32,6 +35,10 @@ const errorMessages: Record<string, string> = {
   comment_required: "Напишіть текст коментаря.",
   comment: "Не вдалося додати коментар.",
   transfer: "Не вдалося передати кейс у маркетинг.",
+  file_required: "Оберіть файл для додавання.",
+  file_type: "Тип файлу не дозволений. Дозволено jpg, png, webp, pdf, mp4, mov.",
+  file_access: "Немає доступу до цього кейсу.",
+  file_upload: "Не вдалося додати файл.",
 };
 
 export default async function CaseDetailsPage({ params, searchParams }: CaseDetailsPageProps) {
@@ -43,6 +50,7 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
     { data: caseItem },
     { data: comments },
     { data: activity },
+    { data: files },
     { data: segments },
     { data: cities },
   ] = await Promise.all([
@@ -69,6 +77,11 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
       .select("id,action,metadata,created_at,actor:profiles!case_activity_log_actor_user_id_fkey(display_name,email)")
       .eq("case_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("case_files")
+      .select("id,case_id,uploaded_by_user_id,storage_bucket,storage_path,original_name,mime_type,size_bytes,created_at,uploader:profiles!case_files_uploaded_by_user_id_fkey(display_name,email)")
+      .eq("case_id", id)
+      .order("created_at", { ascending: false }),
     supabase.from("case_segments").select("id,name").order("sort_order"),
     supabase.from("cities").select("id,name").order("sort_order"),
   ]);
@@ -80,6 +93,7 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
   const typedCase = caseItem as unknown as CaseRow;
   const typedComments = (comments ?? []) as unknown as CaseComment[];
   const typedActivity = (activity ?? []) as unknown as CaseActivity[];
+  const typedFiles = (files ?? []) as unknown as CaseFileRow[];
 
   return (
     <>
@@ -105,6 +119,7 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           <CaseSummary caseItem={typedCase} />
+          <ScoringExplanation caseItem={typedCase} />
           <CaseForm
             caseItem={typedCase}
             cities={(cities ?? []) as DirectoryOption[]}
@@ -115,6 +130,7 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
 
         <aside className="space-y-6">
           <TransferPanel caseId={typedCase.id} marketingStatus={typedCase.marketing_status} />
+          <FilesPanel caseId={typedCase.id} files={typedFiles} />
           <CommentsPanel caseId={typedCase.id} comments={typedComments} />
           <ActivityPanel activity={typedActivity} />
         </aside>
@@ -124,14 +140,17 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
 }
 
 function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
+  const priority = getPriority(caseItem);
+
   return (
     <section className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-4">
       <SummaryItem label="Статус кейсу" value={caseItem.project_status ?? "Новий"} />
-      <SummaryItem label="Статус маркетингу" value={caseItem.marketing_status ?? "Не передано"} />
+      <SummaryItem label="Статус маркетингу" value={caseItem.marketing_status ?? "Новий"} />
       <SummaryItem label="Сегмент" value={caseItem.case_segments?.name ?? "Не вибрано"} />
       <SummaryItem label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
       <SummaryItem label="Власник" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
       <SummaryItem label="Оцінка" value={caseItem.score === null ? "Не вказано" : String(caseItem.score)} />
+      <SummaryItem label="Пріоритет" value={priority} />
       <SummaryItem label="Створено" value={formatDateTime(caseItem.created_at)} />
       <SummaryItem label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
       <div className="md:col-span-4">
@@ -145,6 +164,89 @@ function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
   );
 }
 
+function FilesPanel({ caseId, files }: { caseId: string; files: CaseFileRow[] }) {
+  return (
+    <section className="rounded-lg border bg-card p-5">
+      <h2 className="text-lg font-semibold">Файли і фото</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Дозволено: jpg, png, webp, pdf, mp4, mov. Файли не мають відкритих публічних URL.
+      </p>
+      <form action={uploadCaseFileAction} className="mt-4 space-y-3">
+        <input name="caseId" type="hidden" value={caseId} />
+        <input
+          accept=".jpg,.jpeg,.png,.webp,.pdf,.mp4,.mov,image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime"
+          className="block w-full rounded-md border bg-background px-3 py-2 text-sm"
+          name="file"
+          required
+          type="file"
+        />
+        <Button type="submit">Додати файл</Button>
+      </form>
+      <div className="mt-5 space-y-3">
+        {files.length ? (
+          files.map((file) => (
+            <article className="rounded-md border bg-background p-3" key={file.id}>
+              <a className="font-medium hover:underline" href={`/cases/${caseId}/files/${file.id}`}>
+                {file.original_name}
+              </a>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {file.mime_type ?? "Тип не визначено"} · {formatFileSize(file.size_bytes)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Додав: {file.uploader?.display_name ?? file.uploader?.email ?? "Користувач"} ·{" "}
+                {formatDateTime(file.created_at)}
+              </p>
+            </article>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">Файлів ще немає.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ScoringExplanation({ caseItem }: { caseItem: CaseRow }) {
+  const scoring = getScoring(caseItem);
+
+  if (!scoring) {
+    return (
+      <section className="rounded-lg border bg-card p-5">
+        <h2 className="text-lg font-semibold">Пояснення балів</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Пояснення зʼявиться після збереження кейсу з факторами скорингу.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-lg border bg-card p-5">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Пояснення балів</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {scoring.score} балів · {scoring.priority}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-2">
+        {scoring.details.map((item) => (
+          <div
+            className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm"
+            key={item.label}
+          >
+            <span className={item.matched ? "font-medium" : "text-muted-foreground"}>{item.label}</span>
+            <span className={item.matched ? "font-semibold text-primary" : "text-muted-foreground"}>
+              {item.matched ? `+${item.points}` : "0"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -152,6 +254,18 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
+}
+
+function formatFileSize(sizeBytes: number | null) {
+  if (!sizeBytes) {
+    return "Розмір не визначено";
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.round(sizeBytes / 1024)} КБ`;
+  }
+
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} МБ`;
 }
 
 function TransferPanel({ caseId, marketingStatus }: { caseId: string; marketingStatus: string | null }) {
@@ -230,6 +344,17 @@ function ActivityPanel({ activity }: { activity: CaseActivity[] }) {
 const activityLabels: Record<string, string> = {
   "case.created": "Кейс створено",
   "case.updated": "Кейс оновлено",
+  "case.scored": "Скоринг оновлено",
   "comment.created": "Коментар додано",
   "case.transferred_to_marketing": "Кейс передано в маркетинг",
 };
+
+function getScoring(caseItem: CaseRow) {
+  const scoring = caseItem.metadata.scoring;
+  return scoring && typeof scoring === "object" ? (scoring as ScoringResult) : null;
+}
+
+function getPriority(caseItem: CaseRow) {
+  const priority = caseItem.metadata.priority;
+  return typeof priority === "string" ? priority : "Не визначено";
+}

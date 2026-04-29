@@ -116,8 +116,9 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       ) : null}
 
       <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="grid grid-cols-[1.5fr_0.9fr_0.9fr_0.7fr] gap-4 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground max-md:hidden">
+        <div className="grid grid-cols-[1.4fr_0.8fr_0.9fr_0.9fr_0.7fr] gap-4 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground max-md:hidden">
           <span>Кейс</span>
+          <span>Оцінка</span>
           <span>Статус</span>
           <span>Маркетинг</span>
           <span>Оновлено</span>
@@ -125,7 +126,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         {typedCases.length ? (
           typedCases.map((caseItem) => (
             <Link
-              className="grid gap-2 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/50 md:grid-cols-[1.5fr_0.9fr_0.9fr_0.7fr] md:gap-4"
+              className="grid gap-2 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/50 md:grid-cols-[1.4fr_0.8fr_0.9fr_0.9fr_0.7fr] md:gap-4"
               href={`/cases/${caseItem.id}`}
               key={caseItem.id}
             >
@@ -136,8 +137,9 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
                   {caseItem.case_segments?.name ?? "Без сегмента"} · {caseItem.cities?.name ?? "Без міста"}
                 </p>
               </div>
+              <StatusPill>{caseItem.score ?? 0} · {getCasePriority(caseItem)}</StatusPill>
               <StatusPill>{caseItem.project_status ?? "Новий"}</StatusPill>
-              <StatusPill>{caseItem.marketing_status ?? "Не передано"}</StatusPill>
+              <StatusPill>{caseItem.marketing_status ?? "Новий"}</StatusPill>
               <span className="text-sm text-muted-foreground">{formatDateTime(caseItem.updated_at)}</span>
             </Link>
           ))
@@ -210,4 +212,9 @@ function StatusPill({ children }: { children: React.ReactNode }) {
       {children}
     </span>
   );
+}
+
+function getCasePriority(caseItem: CaseRow) {
+  const priority = caseItem.metadata.priority;
+  return typeof priority === "string" ? priority : "Спостерігаємо";
 }

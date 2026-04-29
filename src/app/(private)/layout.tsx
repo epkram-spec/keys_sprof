@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/layout/app-shell";
 import type { AppRole, Profile } from "@/lib/auth/types";
+import { getNotificationSummary } from "@/lib/notifications/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export default async function PrivateLayout({
@@ -38,5 +39,11 @@ export default async function PrivateLayout({
     redirect("/login?error=inactive");
   }
 
-  return <AppShell profile={currentProfile}>{children}</AppShell>;
+  const notifications = await getNotificationSummary(currentProfile.id);
+
+  return (
+    <AppShell notifications={notifications} profile={currentProfile}>
+      {children}
+    </AppShell>
+  );
 }

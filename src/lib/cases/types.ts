@@ -41,4 +41,15 @@ export type DirectoryOption = {
 
 export const projectStatusOptions = ["Новий", "В роботі", "Очікує уточнення", "Готовий до передачі"];
 
-export const marketingStatusOptions = ["Не передано", "Перевірити", "Прийнято", "Повернуто"];
+export const marketingStatusOptions = [
+  "Новий",
+  "Перевірити",
+  "Потрібно погодити зйомку",
+  "Готово до зйомки",
+  "Зйомка запланована",
+  "Знято",
+  "Монтаж",
+  "Опубліковано",
+  "Відхилено",
+  "Архів",
+];

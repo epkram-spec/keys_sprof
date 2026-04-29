@@ -17,6 +17,7 @@ import { logoutAction } from "@/app/(private)/actions";
 import { Button } from "@/components/ui/button";
 import type { AppRole, Profile } from "@/lib/auth/types";
 import { roleLabels } from "@/lib/auth/types";
+import type { NotificationRecipientRow } from "@/lib/notifications/types";
 
 const navigation: Array<{
   href: string;
@@ -35,7 +36,15 @@ const navigation: Array<{
   { href: "/admin", label: "Адміністрування", icon: Shield, roles: ["admin"] },
 ];
 
-export function AppShell({ children, profile }: { children: React.ReactNode; profile: Profile }) {
+export function AppShell({
+  children,
+  notifications,
+  profile,
+}: {
+  children: React.ReactNode;
+  notifications: { unreadCount: number; latest: NotificationRecipientRow[] };
+  profile: Profile;
+}) {
   const availableNavigation = navigation.filter((item) => item.roles.includes(profile.role));
   const displayName = profile.display_name || profile.email;
 
@@ -72,14 +81,7 @@ export function AppShell({ children, profile }: { children: React.ReactNode; pro
               <span className="block">Роль</span>
               <span className="font-medium text-foreground">{roleLabels[profile.role]}</span>
             </div>
-            <Button aria-label="Сповіщення: 0 нових" size="icon" type="button" variant="outline">
-              <span className="relative">
-                <Bell className="size-4" aria-hidden="true" />
-                <span className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground">
-                  0
-                </span>
-              </span>
-            </Button>
+            <NotificationBell notifications={notifications} />
             <form action={logoutAction}>
               <Button aria-label="Вийти" size="icon" type="submit" variant="ghost">
                 <LogOut className="size-4" aria-hidden="true" />
@@ -88,6 +90,57 @@ export function AppShell({ children, profile }: { children: React.ReactNode; pro
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl px-4 py-6 md:px-6">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+function NotificationBell({
+  notifications,
+}: {
+  notifications: { unreadCount: number; latest: NotificationRecipientRow[] };
+}) {
+  return (
+    <div className="group relative">
+      <Button aria-label={`Сповіщення: ${notifications.unreadCount} нових`} size="icon" type="button" variant="outline">
+        <span className="relative">
+          <Bell className="size-4" aria-hidden="true" />
+          <span className="absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-accent text-[10px] font-semibold text-accent-foreground">
+            {notifications.unreadCount > 9 ? "9+" : notifications.unreadCount}
+          </span>
+        </span>
+      </Button>
+      <div className="invisible absolute right-0 top-12 z-20 w-[340px] rounded-lg border bg-popover p-3 opacity-0 shadow-lg transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="font-semibold">Сповіщення</h2>
+          <Link className="text-sm font-medium text-primary hover:underline" href="/notifications">
+            Усі
+          </Link>
+        </div>
+        <div className="max-h-[420px] space-y-2 overflow-y-auto">
+          {notifications.latest.length ? (
+            notifications.latest.map((item) => (
+              <article className="rounded-md border bg-background p-3" key={item.id}>
+                <p className="text-sm font-semibold">{item.notification_events?.title ?? "Сповіщення"}</p>
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                  {item.notification_events?.body ?? "Немає опису."}
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {item.in_app_status === "unread" ? "Нове" : "Переглянуте"}
+                  </span>
+                  {item.notification_events?.case_id ? (
+                    <Link className="text-xs font-medium text-primary hover:underline" href={`/cases/${item.notification_events.case_id}`}>
+                      Відкрити кейс
+                    </Link>
+                  ) : null}
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-md border bg-background p-3 text-sm text-muted-foreground">Сповіщень немає.</p>
+          )}
+        </div>
       </div>
     </div>
   );
