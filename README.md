@@ -1,13 +1,40 @@
-# keys_sprof
+# Радар кейсів SPROF
 
-Радар кейсів SPROF.
+Внутрішній вебсервіс для збору, оцінки, ведення і передачі потенційних кейсів у маркетинг.
 
-## Environment
+Це не CRM, не система продажів, не таск-менеджер, не склад і не контент-план.
 
-1. Copy `.env.example` to `.env`.
-2. Fill private values only in `.env` or in Vercel Environment Variables.
-3. Do not commit `.env`.
+## Стек
 
-## Database
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- shadcn/ui-сумісна структура компонентів
+- ESLint
+- Prettier
+- Zod для перевірки змінних середовища
 
-All database changes must be made through migration files in `supabase/migrations`.
+## Локальний запуск
+
+```powershell
+npm install
+npm run dev
+```
+
+Застосунок відкривається за адресою `http://localhost:3000`.
+
+## Змінні середовища
+
+1. Створи локальний файл `.env` на основі `.env.example`.
+2. Заповни приватні значення тільки в `.env` або у Vercel Environment Variables.
+3. Не коміть `.env` і секрети.
+
+## База даних
+
+Усі зміни БД робляться тільки через файли міграцій у `supabase/migrations`.
+
+Міграції не застосовуються на staging або production без окремого погодження власника.
+
+## Деплой і GitHub
+
+Агент не пушить у GitHub, не застосовує міграції і не деплоїть на Vercel без явної команди власника.
