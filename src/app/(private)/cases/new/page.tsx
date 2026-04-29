@@ -1,23 +1,40 @@
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
+import { CaseForm } from "@/components/cases/case-form";
+import type { DirectoryOption } from "@/lib/cases/types";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function NewCasePage() {
+type NewCasePageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+const errorMessages: Record<string, string> = {
+  required: "Заповніть обовʼязкові поля.",
+  create: "Не вдалося додати кейс. Перевірте дані й спробуйте ще раз.",
+};
+
+export default async function NewCasePage({ searchParams }: NewCasePageProps) {
+  const supabase = await createSupabaseServerClient();
+  const params = await searchParams;
+  const [{ data: segments }, { data: cities }] = await Promise.all([
+    supabase.from("case_segments").select("id,name").order("sort_order"),
+    supabase.from("cities").select("id,name").order("sort_order"),
+  ]);
+
   return (
     <>
-      <PageHeader title="Новий кейс" description="Форма-заготовка для майбутнього створення кейсу." />
-      <section className="grid gap-4 rounded-lg border bg-card p-5">
-        <label className="text-sm font-medium">
-          Назва кейсу
-          <input className="mt-2 h-10 w-full rounded-md border bg-background px-3" />
-        </label>
-        <label className="text-sm font-medium">
-          Короткий опис
-          <textarea className="mt-2 min-h-28 w-full rounded-md border bg-background px-3 py-2" />
-        </label>
-        <div>
-          <Button type="button">Зберегти чернетку</Button>
-        </div>
-      </section>
+      <PageHeader title="Додати кейс" description="Обовʼязкові поля розміщені зверху, додатковий контекст - нижче." />
+      {params.error ? (
+        <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {errorMessages[params.error] ?? "Сталася помилка. Спробуйте ще раз."}
+        </p>
+      ) : null}
+      <CaseForm
+        cities={(cities ?? []) as DirectoryOption[]}
+        mode="create"
+        segments={(segments ?? []) as DirectoryOption[]}
+      />
     </>
   );
 }
