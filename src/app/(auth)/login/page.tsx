@@ -1,7 +1,16 @@
 import { env } from "@/env";
-import { Button } from "@/components/ui/button";
+import { LoginForm } from "@/app/(auth)/login/login-form";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+  const pageError = params.error === "inactive" ? "Ваш обліковий запис деактивовано." : undefined;
+
   return (
     <main className="grid min-h-screen place-items-center px-6 py-10">
       <section className="w-full max-w-[420px] rounded-lg border bg-card p-8 shadow-sm">
@@ -13,27 +22,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form className="space-y-4">
-          <label className="block text-sm font-medium">
-            Електронна пошта
-            <input
-              className="mt-2 h-11 w-full rounded-md border bg-background px-3 text-sm"
-              placeholder="name@sprof.ua"
-              type="email"
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            Пароль
-            <input
-              className="mt-2 h-11 w-full rounded-md border bg-background px-3 text-sm"
-              placeholder="Введіть пароль"
-              type="password"
-            />
-          </label>
-          <Button className="w-full" type="button">
-            Увійти
-          </Button>
-        </form>
+        <LoginForm pageError={pageError} />
       </section>
     </main>
   );
