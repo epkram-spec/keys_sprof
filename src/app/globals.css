@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Manrope", "Segoe UI", sans-serif;
+  --background: 42 29% 96%;
+  --foreground: 220 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 20% 12%;
+  --primary: 169 61% 24%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 38 45% 88%;
+  --secondary-foreground: 220 20% 12%;
+  --muted: 42 24% 91%;
+  --muted-foreground: 220 10% 42%;
+  --accent: 17 76% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 74% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 36 21% 82%;
+  --input: 36 21% 82%;
+  --ring: 169 61% 24%;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background:
+    linear-gradient(135deg, rgba(27, 97, 86, 0.08), transparent 32rem),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  outline-color: hsl(var(--ring));
+}
