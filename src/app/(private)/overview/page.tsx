@@ -150,7 +150,8 @@ function Badge({ children }: { children: React.ReactNode }) {
 }
 
 function getMonitoring(caseItem: CaseRow) {
-  const monitoring = caseItem.metadata.marketingMonitoring;
+  const metadata = caseItem.metadata ?? {};
+  const monitoring = metadata.marketingMonitoring;
   return monitoring && typeof monitoring === "object" ? (monitoring as Record<string, unknown>) : {};
 }
 

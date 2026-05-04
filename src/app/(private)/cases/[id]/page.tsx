@@ -350,11 +350,11 @@ const activityLabels: Record<string, string> = {
 };
 
 function getScoring(caseItem: CaseRow) {
-  const scoring = caseItem.metadata.scoring;
+  const scoring = caseItem.metadata?.scoring;
   return scoring && typeof scoring === "object" ? (scoring as ScoringResult) : null;
 }
 
 function getPriority(caseItem: CaseRow) {
-  const priority = caseItem.metadata.priority;
+  const priority = caseItem.metadata?.priority;
   return typeof priority === "string" ? priority : "Не визначено";
 }

@@ -53,12 +53,12 @@ export function buildReportSummary(cases: CaseRow[], role: AppRole): ReportSumma
 }
 
 export function getPriority(caseItem: CaseRow) {
-  const priority = caseItem.metadata.priority;
+  const priority = caseItem.metadata?.priority;
   return typeof priority === "string" ? priority : "Спостерігаємо";
 }
 
 export function getLaunchDate(caseItem: CaseRow) {
-  const monitoring = caseItem.metadata.marketingMonitoring;
+  const monitoring = caseItem.metadata?.marketingMonitoring;
   if (monitoring && typeof monitoring === "object" && "keyDate" in monitoring) {
     const keyDate = (monitoring as Record<string, unknown>).keyDate;
     if (typeof keyDate === "string" && keyDate) {
@@ -81,7 +81,7 @@ export function getPermission(caseItem: CaseRow) {
 }
 
 function getScoringInput(caseItem: CaseRow) {
-  return caseItem.metadata.scoringInput && typeof caseItem.metadata.scoringInput === "object"
+  return caseItem.metadata?.scoringInput && typeof caseItem.metadata.scoringInput === "object"
     ? (caseItem.metadata.scoringInput as Record<string, unknown>)
     : {};
 }
