@@ -1,5 +1,6 @@
 import {
   archiveCaseAction,
+  createUserAction,
   updateUserRoleAction,
   upsertCityAction,
   upsertSegmentAction,
@@ -105,9 +106,25 @@ export default async function AdminPage() {
           <InfoHint label="Реєстрація з інтерфейсу закрита. Користувач створюється в Supabase Authentication, а роль виставляється тут." />
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Створи користувача в Supabase Dashboard: Authentication, Users, Add user. Після створення перевір запис у profiles і вистав роль нижче.
-          Перший адміністратор: epkram@gmail.com.
+          Адміністратор може створити користувача тут. Він одразу потрапить у Supabase Auth і в таблицю profiles.
         </p>
+        <form action={createUserAction} className="mt-4 grid gap-3 rounded-md border bg-background p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_180px_auto_auto]">
+          <input className="h-10 rounded-md border bg-card px-3" name="email" placeholder="email@sprof.ua" required type="email" />
+          <input className="h-10 rounded-md border bg-card px-3" minLength={8} name="password" placeholder="Тимчасовий пароль" required type="text" />
+          <input className="h-10 rounded-md border bg-card px-3" name="displayName" placeholder="Імʼя" />
+          <select className="h-10 rounded-md border bg-card px-3" defaultValue="manager" name="role">
+            {(["manager", "marketing", "leader", "admin"] as AppRole[]).map((role) => (
+              <option key={role} value={role}>
+                {roleLabels[role]}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input defaultChecked name="isActive" type="checkbox" />
+            Активний
+          </label>
+          <Button type="submit">Створити</Button>
+        </form>
       </section>
 
       <section className="mb-6 rounded-lg border bg-card p-5 shadow-sm">

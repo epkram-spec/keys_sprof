@@ -114,17 +114,16 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       ) : null}
 
       <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="hidden border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(260px,1.8fr)_120px_120px_145px_145px_140px_115px] lg:gap-3">
-          <span>Кейс</span>
-          <span>Місто</span>
-          <span>Менеджер</span>
+        <div className="hidden min-w-0 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.8fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(116px,0.8fr)_minmax(128px,0.9fr)_minmax(124px,0.8fr)] lg:gap-3">
+          <span className="flex items-center gap-1">Кейс <InfoHint label="Назва кейсу, короткий опис і сегмент." /></span>
+          <span className="flex items-center gap-1">Місто <InfoHint label="Місто, де відбувається проєкт або монтаж." /></span>
+          <span className="flex items-center gap-1">Менеджер <InfoHint label="Відповідальний менеджер за кейс." /></span>
           <span className="flex items-center gap-1">
             Оцінка
             <InfoHint label="Автоматичний скоринг за чекпунктами кандидата на зйомку." />
           </span>
-          <span>Статус</span>
-          <span>Готовність</span>
-          <span>Оновлено</span>
+          <span className="flex items-center gap-1">Статус <InfoHint label="Поточний статус кейсу і статус маркетингу." /></span>
+          <span className="flex items-center gap-1">Готовність <InfoHint label="Чи є дозвіл та ключова дата для виїзду або зйомки." /></span>
         </div>
 
         {typedCases.length ? (
@@ -148,13 +147,13 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
 
   return (
     <Link
-      className="grid gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(260px,1.8fr)_120px_120px_145px_145px_140px_115px] lg:items-center lg:gap-3"
+      className="grid min-w-0 gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(220px,1.8fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(116px,0.8fr)_minmax(128px,0.9fr)_minmax(124px,0.8fr)] lg:items-center lg:gap-3"
       href={`/cases/${caseItem.id}`}
     >
-      <div>
-        <h2 className="font-semibold leading-5">{caseItem.title}</h2>
+      <div className="min-w-0">
+        <h2 className="break-words font-semibold leading-5">{caseItem.title}</h2>
         <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{caseItem.summary}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{caseItem.case_segments?.name ?? "Без сегмента"}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{caseItem.case_segments?.name ?? "Без сегмента"} · {formatDateTime(caseItem.updated_at)}</p>
       </div>
       <MobileMeta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
       <MobileMeta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
@@ -169,7 +168,6 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
         <StatusPill>{permission || "Без дозволу"}</StatusPill>
         <StatusPill>{datesReady ? "Дати є" : "Без дат"}</StatusPill>
       </div>
-      <span className="text-sm text-muted-foreground">{formatDateTime(caseItem.updated_at)}</span>
     </Link>
   );
 }
@@ -230,7 +228,7 @@ function MobileMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 text-sm lg:block">
       <span className="text-muted-foreground lg:hidden">{label}</span>
-      <span className="font-medium lg:font-normal">{value}</span>
+      <span className="min-w-0 break-words text-right font-medium lg:text-left lg:font-normal">{value}</span>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { caseFileBucket, isAllowedCaseFile } from "@/lib/cases/files";
 import { booleanFromFormValue, calculateCaseScore, scoringCriteria } from "@/lib/cases/scoring";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -14,6 +15,34 @@ function readText(formData: FormData, key: string) {
 function readOptionalText(formData: FormData, key: string) {
   const value = readText(formData, key);
   return value ? value : null;
+}
+
+async function resolveCityId(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, formData: FormData) {
+  const selectedCityId = readOptionalText(formData, "cityId");
+  const cityName = readText(formData, "cityName");
+
+  if (!cityName) {
+    return selectedCityId;
+  }
+
+  const { data: existingCity } = await supabase
+    .from("cities")
+    .select("id")
+    .ilike("name", cityName)
+    .maybeSingle<{ id: string }>();
+
+  if (existingCity?.id) {
+    return existingCity.id;
+  }
+
+  const adminSupabase = createSupabaseAdminClient();
+  const { data: createdCity } = await adminSupabase
+    .from("cities")
+    .insert({ name: cityName, sort_order: 998, is_active: true })
+    .select("id")
+    .single<{ id: string }>();
+
+  return createdCity?.id ?? selectedCityId;
 }
 
 async function getCurrentUser() {
@@ -40,9 +69,20 @@ async function writeActivity(caseId: string, actorUserId: string, action: string
 }
 
 function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, unknown> = {}) {
-  const scoringInput = Object.fromEntries(
-    scoringCriteria.map((criterion) => [criterion.key, booleanFromFormValue(formData.get(criterion.key))]),
-  );
+  const marketingMonitoring = {
+    paymentStatus: readOptionalText(formData, "paymentStatus"),
+    equipmentApproved: booleanFromFormValue(formData.get("equipmentApproved")),
+    keyDate: readOptionalText(formData, "keyDate"),
+    projectStage: readOptionalText(formData, "projectStage"),
+    isHighProfile: booleanFromFormValue(formData.get("isHighProfile")),
+    bigCheck: booleanFromFormValue(formData.get("bigCheck")),
+  };
+  const scoringInput = {
+    ...Object.fromEntries(
+      scoringCriteria.map((criterion) => [criterion.key, booleanFromFormValue(formData.get(criterion.key))]),
+    ),
+    hasFeasibleDates: Boolean(marketingMonitoring.keyDate),
+  };
   const scoring = calculateCaseScore(scoringInput);
 
   return {
@@ -53,6 +93,7 @@ function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, u
       source: readOptionalText(formData, "source"),
       expectedValue: readOptionalText(formData, "expectedValue"),
       notes: readOptionalText(formData, "notes"),
+      marketingMonitoring,
       scoringInput,
       scoring,
       priority: scoring.priority,
@@ -77,13 +118,17 @@ async function createHotCaseNotification(caseId: string, actorUserId: string, ti
 export async function createCaseAction(formData: FormData) {
   const title = readText(formData, "title");
   const summary = readText(formData, "summary");
+  const segmentId = readOptionalText(formData, "segmentId");
+  const projectStatus = readOptionalText(formData, "projectStatus");
+  const cityName = readText(formData, "cityName");
 
-  if (!title || !summary) {
+  if (!title || !summary || !segmentId || !projectStatus || !cityName) {
     redirect("/cases/new?error=required");
   }
 
   const { supabase, user } = await getCurrentUser();
   const { metadata, scoring } = buildCaseMetadata(formData);
+  const cityId = await resolveCityId(supabase, formData);
 
   const { data, error } = await supabase
     .from("cases")
@@ -92,9 +137,9 @@ export async function createCaseAction(formData: FormData) {
       summary,
       owner_user_id: user.id,
       created_by_user_id: user.id,
-      segment_id: readOptionalText(formData, "segmentId"),
-      city_id: readOptionalText(formData, "cityId"),
-      project_status: readOptionalText(formData, "projectStatus") ?? "Новий",
+      segment_id: segmentId,
+      city_id: cityId,
+      project_status: projectStatus,
       marketing_status: "Новий",
       score: scoring.score,
       metadata,
@@ -121,8 +166,11 @@ export async function updateCaseAction(formData: FormData) {
   const caseId = readText(formData, "caseId");
   const title = readText(formData, "title");
   const summary = readText(formData, "summary");
+  const segmentId = readOptionalText(formData, "segmentId");
+  const projectStatus = readOptionalText(formData, "projectStatus");
+  const cityName = readText(formData, "cityName");
 
-  if (!caseId || !title || !summary) {
+  if (!caseId || !title || !summary || !segmentId || !projectStatus || !cityName) {
     redirect(caseId ? `/cases/${caseId}?error=required` : "/cases?error=missing");
   }
 
@@ -134,15 +182,16 @@ export async function updateCaseAction(formData: FormData) {
   const previousPriority =
     typeof currentMetadata.priority === "string" ? currentMetadata.priority : undefined;
   const { metadata, scoring } = buildCaseMetadata(formData, currentMetadata);
+  const cityId = await resolveCityId(supabase, formData);
 
   const { error } = await supabase
     .from("cases")
     .update({
       title,
       summary,
-      segment_id: readOptionalText(formData, "segmentId"),
-      city_id: readOptionalText(formData, "cityId"),
-      project_status: readOptionalText(formData, "projectStatus") ?? "Новий",
+      segment_id: segmentId,
+      city_id: cityId,
+      project_status: projectStatus,
       score: scoring.score,
       metadata,
     })

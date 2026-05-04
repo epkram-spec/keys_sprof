@@ -58,6 +58,14 @@ export function getPriority(caseItem: CaseRow) {
 }
 
 export function getLaunchDate(caseItem: CaseRow) {
+  const monitoring = caseItem.metadata.marketingMonitoring;
+  if (monitoring && typeof monitoring === "object" && "keyDate" in monitoring) {
+    const keyDate = (monitoring as Record<string, unknown>).keyDate;
+    if (typeof keyDate === "string" && keyDate) {
+      return keyDate;
+    }
+  }
+
   const scoringInput = getScoringInput(caseItem);
   const launchDate = scoringInput.launchDate;
   return typeof launchDate === "string" ? launchDate : "";

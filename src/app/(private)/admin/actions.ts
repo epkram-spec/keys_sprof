@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { AppRole } from "@/lib/auth/types";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -52,6 +53,47 @@ export async function updateUserRoleAction(formData: FormData) {
 
   revalidatePath("/admin");
   redirect("/admin?success=user");
+}
+
+export async function createUserAction(formData: FormData) {
+  const email = readText(formData, "email").toLowerCase();
+  const password = readText(formData, "password");
+  const displayName = readText(formData, "displayName") || null;
+  const role = readText(formData, "role") as AppRole;
+  const isActive = formData.get("isActive") === "on";
+
+  if (!email || !password || password.length < 8 || !["manager", "marketing", "leader", "admin"].includes(role)) {
+    redirect("/admin?error=user_create");
+  }
+
+  const { supabase, user } = await getAdminContext();
+  const adminSupabase = createSupabaseAdminClient();
+  const { data, error } = await adminSupabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { display_name: displayName },
+  });
+
+  if (error || !data.user) {
+    redirect("/admin?error=user_create");
+  }
+
+  await supabase.from("profiles").upsert({
+    id: data.user.id,
+    email,
+    role,
+    display_name: displayName,
+    is_active: isActive,
+  });
+  await supabase.from("case_activity_log").insert({
+    actor_user_id: user.id,
+    action: "admin.user_created",
+    metadata: { userId: data.user.id, email, role, isActive },
+  });
+
+  revalidatePath("/admin");
+  redirect("/admin?success=user_created");
 }
 
 export async function upsertSegmentAction(formData: FormData) {

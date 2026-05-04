@@ -15,6 +15,7 @@ import {
 import { env } from "@/env";
 import { logoutAction } from "@/app/(private)/actions";
 import { Button } from "@/components/ui/button";
+import { NavLink } from "@/components/layout/nav-link";
 import type { AppRole, Profile } from "@/lib/auth/types";
 import { roleLabels } from "@/lib/auth/types";
 import type { NotificationRecipientRow } from "@/lib/notifications/types";
@@ -58,14 +59,7 @@ export function AppShell({
         </div>
         <nav className="grid gap-1 p-3">
           {availableNavigation.map((item) => (
-            <Link
-              className="flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              href={item.href}
-              key={item.href}
-            >
-              <item.icon className="size-4" aria-hidden="true" />
-              {item.label}
-            </Link>
+            <NavLink href={item.href} icon={item.icon} key={item.href} label={item.label} />
           ))}
         </nav>
       </aside>

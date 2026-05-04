@@ -146,7 +146,7 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
               <h2 className="text-base font-semibold">{group.status}</h2>
               <p className="text-sm text-muted-foreground">{group.cases.length} кейсів</p>
             </div>
-            <div className="grid gap-3 p-3 xl:grid-cols-2">
+            <div className="grid gap-3 p-3 2xl:grid-cols-2">
               {group.cases.length ? (
                 group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
               ) : (
@@ -167,14 +167,14 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
   const datesReady = scoringInput.hasFeasibleDates === true;
 
   return (
-    <article className="rounded-md border bg-background p-3">
-      <div className="grid gap-3 md:grid-cols-[1fr_220px]">
-        <div>
-          <Link className="font-semibold hover:underline" href={`/cases/${caseItem.id}`}>
+    <article className="min-w-0 rounded-md border bg-background p-3">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="min-w-0">
+          <Link className="break-words font-semibold hover:underline" href={`/cases/${caseItem.id}`}>
             {caseItem.title}
           </Link>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{caseItem.summary}</p>
-          <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+          <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground md:grid-cols-[repeat(auto-fit,minmax(190px,1fr))]">
             <Meta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
             <Meta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
             <Meta label="Пріоритет" value={`${caseItem.score ?? 0} · ${priority}`} />
@@ -214,9 +214,9 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1">
+    <div className="flex min-w-0 justify-between gap-3 rounded-md bg-muted/35 px-2 py-1">
       <span>{label}</span>
-      <span className="text-right font-medium text-foreground">{value}</span>
+      <span className="min-w-0 break-words text-right font-medium text-foreground">{value}</span>
     </div>
   );
 }
