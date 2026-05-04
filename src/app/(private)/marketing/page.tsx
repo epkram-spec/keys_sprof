@@ -4,8 +4,11 @@ import { ArrowRight } from "lucide-react";
 import { updateMarketingStatusAction } from "@/app/(private)/marketing/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { formatDateTime } from "@/lib/cases/format";
+import { normalizeLegacyScoringInput } from "@/lib/cases/scoring";
 import { type CaseRow, type DirectoryOption, marketingStatusOptions } from "@/lib/cases/types";
+import { getPermission, getPriority } from "@/lib/reports/summary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type MarketingPageProps = {
@@ -13,7 +16,7 @@ type MarketingPageProps = {
     city_id?: string;
     manager_id?: string;
     priority?: string;
-    launch_date?: string;
+    dates_ready?: string;
     permission_status?: string;
     error?: string;
     success?: string;
@@ -27,7 +30,7 @@ type ManagerOption = {
 };
 
 const priorityOptions = ["Гарячий кейс", "Потенційний кейс", "Спостерігаємо"];
-const permissionOptions = ["Так", "Уточнюється", "Ні"];
+const permissionOptions = ["Так", "Ні"];
 
 const successMessages: Record<string, string> = {
   status_updated: "Статус маркетингу оновлено.",
@@ -70,45 +73,42 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
   const [{ data: cases, error }, { data: cities }, { data: managers }] = await Promise.all([
     query,
     supabase.from("cities").select("id,name").order("sort_order"),
-    supabase.from("profiles").select("id,email,display_name").eq("role", "manager").order("email"),
+    supabase.from("profiles").select("id,email,display_name").in("role", ["manager", "admin", "leader"]).order("email"),
   ]);
 
   const filteredCases = ((cases ?? []) as unknown as CaseRow[]).filter((caseItem) => {
-    const metadata = caseItem.metadata ?? {};
-    const priority = typeof metadata.priority === "string" ? metadata.priority : "Спостерігаємо";
-    const scoringInput =
-      metadata.scoringInput && typeof metadata.scoringInput === "object"
-        ? (metadata.scoringInput as Record<string, unknown>)
-        : {};
-    const launchDate = typeof scoringInput.launchDate === "string" ? scoringInput.launchDate : "";
-    const permissionStatus =
-      typeof scoringInput.permissionStatus === "string" ? scoringInput.permissionStatus : "";
+    const priority = getPriority(caseItem);
+    const permission = getPermission(caseItem);
+    const scoringInput = getScoringInput(caseItem);
+    const datesReady = scoringInput.hasFeasibleDates === true;
 
     if (params.priority && priority !== params.priority) {
       return false;
     }
 
-    if (params.launch_date && launchDate !== params.launch_date) {
+    if (params.dates_ready && String(datesReady) !== params.dates_ready) {
       return false;
     }
 
-    if (params.permission_status && permissionStatus !== params.permission_status) {
+    if (params.permission_status && permission !== params.permission_status) {
       return false;
     }
 
     return true;
   });
 
-  const groupedCases = marketingStatusOptions.map((status) => ({
-    status,
-    cases: filteredCases.filter((caseItem) => (caseItem.marketing_status ?? "Новий") === status),
-  }));
+  const groupedCases = marketingStatusOptions
+    .map((status) => ({
+      status,
+      cases: filteredCases.filter((caseItem) => (caseItem.marketing_status ?? "Новий") === status),
+    }))
+    .filter((group) => group.cases.length > 0 || group.status === "Новий" || group.status === "Перевірити");
 
   return (
     <>
       <PageHeader
         title="Маркетинг"
-        description="Коротка панель статусів для кейсів без задачника і складного календаря."
+        description="Зручний робочий список за статусами: без вузьких колонок, з нормальним читанням на телефоні та компʼютері."
       />
 
       {params.success ? (
@@ -122,27 +122,14 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
         </p>
       ) : null}
 
-      <form className="mb-5 grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-5">
+      <form className="mb-5 grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 xl:grid-cols-6">
         <DirectorySelect label="Місто" name="city_id" options={(cities ?? []) as DirectoryOption[]} value={params.city_id} />
         <ManagerSelect managers={(managers ?? []) as ManagerOption[]} value={params.manager_id} />
         <SimpleSelect label="Пріоритет" name="priority" options={priorityOptions} value={params.priority} />
-        <label className="text-sm font-medium">
-          Дата монтажу
-          <input
-            className="mt-2 h-10 w-full rounded-md border bg-background px-3"
-            defaultValue={params.launch_date ?? ""}
-            name="launch_date"
-            type="date"
-          />
-        </label>
-        <SimpleSelect
-          label="Дозвіл на зйомку"
-          name="permission_status"
-          options={permissionOptions}
-          value={params.permission_status}
-        />
-        <div className="md:col-span-5">
-          <Button type="submit">Застосувати фільтри</Button>
+        <SimpleSelect label="Дати" name="dates_ready" options={[["true", "Є дати"], ["false", "Без дат"]]} value={params.dates_ready} />
+        <SimpleSelect label="Дозвіл" name="permission_status" options={permissionOptions} value={params.permission_status} />
+        <div className="flex items-end">
+          <Button className="w-full" type="submit">Застосувати</Button>
         </div>
       </form>
 
@@ -152,18 +139,18 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
         </p>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-5">
+      <section className="space-y-4">
         {groupedCases.map((group) => (
-          <div className="min-h-40 rounded-lg border bg-card" key={group.status}>
-            <div className="border-b bg-muted/60 px-3 py-3">
-              <h2 className="text-sm font-semibold">{group.status}</h2>
-              <p className="text-xs text-muted-foreground">{group.cases.length} кейсів</p>
+          <div className="rounded-lg border bg-card shadow-sm" key={group.status}>
+            <div className="flex flex-col gap-1 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <h2 className="text-base font-semibold">{group.status}</h2>
+              <p className="text-sm text-muted-foreground">{group.cases.length} кейсів</p>
             </div>
-            <div className="space-y-3 p-3">
+            <div className="grid gap-3 p-3 xl:grid-cols-2">
               {group.cases.length ? (
-                group.cases.map((caseItem) => <MarketingCard caseItem={caseItem} key={caseItem.id} />)
+                group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
               ) : (
-                <p className="text-sm text-muted-foreground">Немає кейсів.</p>
+                <p className="p-3 text-sm text-muted-foreground">Немає кейсів.</p>
               )}
             </div>
           </div>
@@ -173,70 +160,64 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
   );
 }
 
-function MarketingCard({ caseItem }: { caseItem: CaseRow }) {
-  const priority = typeof caseItem.metadata.priority === "string" ? caseItem.metadata.priority : "Спостерігаємо";
-  const scoringInput =
-    caseItem.metadata.scoringInput && typeof caseItem.metadata.scoringInput === "object"
-      ? (caseItem.metadata.scoringInput as Record<string, unknown>)
-      : {};
-  const launchDate = typeof scoringInput.launchDate === "string" ? scoringInput.launchDate : "";
-  const permissionStatus = typeof scoringInput.permissionStatus === "string" ? scoringInput.permissionStatus : "";
+function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
+  const priority = getPriority(caseItem);
+  const permission = getPermission(caseItem);
+  const scoringInput = getScoringInput(caseItem);
+  const datesReady = scoringInput.hasFeasibleDates === true;
 
   return (
     <article className="rounded-md border bg-background p-3">
-      <div className="flex items-start justify-between gap-3">
+      <div className="grid gap-3 md:grid-cols-[1fr_220px]">
         <div>
           <Link className="font-semibold hover:underline" href={`/cases/${caseItem.id}`}>
             {caseItem.title}
           </Link>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{caseItem.summary}</p>
+          <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <Meta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
+            <Meta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
+            <Meta label="Пріоритет" value={`${caseItem.score ?? 0} · ${priority}`} />
+            <Meta label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
+            <Meta label="Дозвіл" value={permission || "Ні"} />
+            <Meta label="Дати" value={datesReady ? "Є дати" : "Без дат"} />
+          </div>
         </div>
-        <span className="rounded-md border bg-card px-2 py-1 text-xs font-semibold">{caseItem.score ?? 0}</span>
+        <form action={updateMarketingStatusAction} className="grid gap-2 self-start">
+          <input name="caseId" type="hidden" value={caseItem.id} />
+          <label className="text-xs font-medium text-muted-foreground">
+            <span className="flex items-center gap-1">
+              Новий статус
+              <InfoHint label="Маркетинг може змінювати цей статус. Кожна зміна записується в журнал кейсу." />
+            </span>
+            <select
+              className="mt-2 h-10 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+              defaultValue={caseItem.marketing_status ?? "Новий"}
+              name="marketingStatus"
+            >
+              {marketingStatusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button size="sm" type="submit" variant="secondary">
+            <ArrowRight className="size-4" aria-hidden="true" />
+            Змінити статус
+          </Button>
+        </form>
       </div>
-
-      <dl className="mt-3 grid gap-1 text-xs text-muted-foreground">
-        <div className="flex justify-between gap-2">
-          <dt>Менеджер</dt>
-          <dd className="text-right text-foreground">{caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>Місто</dt>
-          <dd className="text-right text-foreground">{caseItem.cities?.name ?? "Не вибрано"}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>Пріоритет</dt>
-          <dd className="text-right text-foreground">{priority}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>Дата монтажу</dt>
-          <dd className="text-right text-foreground">{launchDate || "Не вказано"}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>Дозвіл</dt>
-          <dd className="text-right text-foreground">{permissionStatus || "Не вказано"}</dd>
-        </div>
-      </dl>
-
-      <form action={updateMarketingStatusAction} className="mt-3 grid gap-2">
-        <input name="caseId" type="hidden" value={caseItem.id} />
-        <select
-          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-          defaultValue={caseItem.marketing_status ?? "Новий"}
-          name="marketingStatus"
-        >
-          {marketingStatusOptions.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-        <Button size="sm" type="submit" variant="secondary">
-          <ArrowRight className="size-4" aria-hidden="true" />
-          Змінити статус
-        </Button>
-      </form>
-      <p className="mt-2 text-[11px] text-muted-foreground">Оновлено: {formatDateTime(caseItem.updated_at)}</p>
     </article>
+  );
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 rounded-md bg-muted/35 px-2 py-1">
+      <span>{label}</span>
+      <span className="text-right font-medium text-foreground">{value}</span>
+    </div>
   );
 }
 
@@ -290,7 +271,7 @@ function SimpleSelect({
 }: {
   label: string;
   name: string;
-  options: string[];
+  options: string[] | Array<[string, string]>;
   value?: string;
 }) {
   return (
@@ -298,12 +279,22 @@ function SimpleSelect({
       {label}
       <select className="mt-2 h-10 w-full rounded-md border bg-background px-3" defaultValue={value ?? ""} name={name}>
         <option value="">Усі</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
+        {options.map((option) => {
+          const optionValue = Array.isArray(option) ? option[0] : option;
+          const optionLabel = Array.isArray(option) ? option[1] : option;
+          return (
+            <option key={optionValue} value={optionValue}>
+              {optionLabel}
+            </option>
+          );
+        })}
       </select>
     </label>
   );
+}
+
+function getScoringInput(caseItem: CaseRow) {
+  return caseItem.metadata.scoringInput && typeof caseItem.metadata.scoringInput === "object"
+    ? normalizeLegacyScoringInput(caseItem.metadata.scoringInput as Record<string, unknown>)
+    : {};
 }

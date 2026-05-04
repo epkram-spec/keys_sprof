@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { caseFileBucket, isAllowedCaseFile } from "@/lib/cases/files";
-import { booleanFromFormValue, calculateCaseScore } from "@/lib/cases/scoring";
+import { booleanFromFormValue, calculateCaseScore, scoringCriteria } from "@/lib/cases/scoring";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -40,16 +40,9 @@ async function writeActivity(caseId: string, actorUserId: string, action: string
 }
 
 function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, unknown> = {}) {
-  const scoringInput = {
-    launchDate: readOptionalText(formData, "launchDate"),
-    permissionStatus: readOptionalText(formData, "permissionStatus") ?? "",
-    hasShowcase: booleanFromFormValue(formData.get("hasShowcase")),
-    isRecognizableClient: booleanFromFormValue(formData.get("isRecognizableClient")),
-    isComplexProject: booleanFromFormValue(formData.get("isComplexProject")),
-    hasMetricOrEffect: booleanFromFormValue(formData.get("hasMetricOrEffect")),
-    hasCommentPerson: booleanFromFormValue(formData.get("hasCommentPerson")),
-    hasPhotoOrVideo: booleanFromFormValue(formData.get("hasPhotoOrVideo")),
-  };
+  const scoringInput = Object.fromEntries(
+    scoringCriteria.map((criterion) => [criterion.key, booleanFromFormValue(formData.get(criterion.key))]),
+  );
   const scoring = calculateCaseScore(scoringInput);
 
   return {

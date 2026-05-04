@@ -3,13 +3,16 @@ import { Plus, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import { formatDateTime } from "@/lib/cases/format";
+import { normalizeLegacyScoringInput } from "@/lib/cases/scoring";
 import {
   type CaseRow,
   type DirectoryOption,
   marketingStatusOptions,
   projectStatusOptions,
 } from "@/lib/cases/types";
+import { getPermission, getPriority } from "@/lib/reports/summary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type CasesPageProps = {
@@ -71,7 +74,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
   return (
     <>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <PageHeader title="Кейси" description="Пошук, фільтри і робочий список потенційних кейсів." />
+        <PageHeader title="Кейси" description="Табличний список для швидкого перегляду статусу, пріоритету, міста, менеджера і готовності до зйомки." />
         <Button asChild>
           <Link href="/cases/new">
             <Plus className="size-4" aria-hidden="true" />
@@ -94,12 +97,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
           </div>
         </label>
         <FilterSelect label="Статус кейсу" name="project_status" options={projectStatusOptions} value={params.project_status} />
-        <FilterSelect
-          label="Статус маркетингу"
-          name="marketing_status"
-          options={marketingStatusOptions}
-          value={params.marketing_status}
-        />
+        <FilterSelect label="Маркетинг" name="marketing_status" options={marketingStatusOptions} value={params.marketing_status} />
         <DirectorySelect label="Сегмент" name="segment_id" options={(segments ?? []) as DirectoryOption[]} value={params.segment_id} />
         <DirectorySelect label="Місто" name="city_id" options={(cities ?? []) as DirectoryOption[]} value={params.city_id} />
         <div className="flex items-end">
@@ -115,34 +113,22 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         </p>
       ) : null}
 
-      <section className="overflow-hidden rounded-lg border bg-card">
-        <div className="grid grid-cols-[1.4fr_0.8fr_0.9fr_0.9fr_0.7fr] gap-4 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground max-md:hidden">
+      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="hidden border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(260px,1.8fr)_120px_120px_145px_145px_140px_115px] lg:gap-3">
           <span>Кейс</span>
-          <span>Оцінка</span>
+          <span>Місто</span>
+          <span>Менеджер</span>
+          <span className="flex items-center gap-1">
+            Оцінка
+            <InfoHint label="Автоматичний скоринг за чекпунктами кандидата на зйомку." />
+          </span>
           <span>Статус</span>
-          <span>Маркетинг</span>
+          <span>Готовність</span>
           <span>Оновлено</span>
         </div>
+
         {typedCases.length ? (
-          typedCases.map((caseItem) => (
-            <Link
-              className="grid gap-2 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/50 md:grid-cols-[1.4fr_0.8fr_0.9fr_0.9fr_0.7fr] md:gap-4"
-              href={`/cases/${caseItem.id}`}
-              key={caseItem.id}
-            >
-              <div>
-                <h2 className="font-semibold">{caseItem.title}</h2>
-                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{caseItem.summary}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {caseItem.case_segments?.name ?? "Без сегмента"} · {caseItem.cities?.name ?? "Без міста"}
-                </p>
-              </div>
-              <StatusPill>{caseItem.score ?? 0} · {getCasePriority(caseItem)}</StatusPill>
-              <StatusPill>{caseItem.project_status ?? "Новий"}</StatusPill>
-              <StatusPill>{caseItem.marketing_status ?? "Новий"}</StatusPill>
-              <span className="text-sm text-muted-foreground">{formatDateTime(caseItem.updated_at)}</span>
-            </Link>
-          ))
+          typedCases.map((caseItem) => <CaseTableRow caseItem={caseItem} key={caseItem.id} />)
         ) : (
           <div className="p-8 text-center">
             <h2 className="text-lg font-semibold">Кейсів не знайдено</h2>
@@ -151,6 +137,40 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         )}
       </section>
     </>
+  );
+}
+
+function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
+  const priority = getPriority(caseItem);
+  const permission = getPermission(caseItem);
+  const scoringInput = getScoringInput(caseItem);
+  const datesReady = scoringInput.hasFeasibleDates === true;
+
+  return (
+    <Link
+      className="grid gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(260px,1.8fr)_120px_120px_145px_145px_140px_115px] lg:items-center lg:gap-3"
+      href={`/cases/${caseItem.id}`}
+    >
+      <div>
+        <h2 className="font-semibold leading-5">{caseItem.title}</h2>
+        <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{caseItem.summary}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{caseItem.case_segments?.name ?? "Без сегмента"}</p>
+      </div>
+      <MobileMeta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
+      <MobileMeta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
+      <div className="flex flex-wrap items-center gap-2 lg:block">
+        <StatusPill>{caseItem.score ?? 0} · {priority}</StatusPill>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusPill>{caseItem.project_status ?? "Новий"}</StatusPill>
+        <StatusPill>{caseItem.marketing_status ?? "Новий"}</StatusPill>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <StatusPill>{permission || "Без дозволу"}</StatusPill>
+        <StatusPill>{datesReady ? "Дати є" : "Без дат"}</StatusPill>
+      </div>
+      <span className="text-sm text-muted-foreground">{formatDateTime(caseItem.updated_at)}</span>
+    </Link>
   );
 }
 
@@ -206,15 +226,25 @@ function DirectorySelect({
   );
 }
 
+function MobileMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 text-sm lg:block">
+      <span className="text-muted-foreground lg:hidden">{label}</span>
+      <span className="font-medium lg:font-normal">{value}</span>
+    </div>
+  );
+}
+
 function StatusPill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="h-fit w-fit rounded-md border bg-background px-2.5 py-1 text-sm font-medium text-foreground">
+    <span className="h-fit w-fit rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
       {children}
     </span>
   );
 }
 
-function getCasePriority(caseItem: CaseRow) {
-  const priority = caseItem.metadata.priority;
-  return typeof priority === "string" ? priority : "Спостерігаємо";
+function getScoringInput(caseItem: CaseRow) {
+  return caseItem.metadata.scoringInput && typeof caseItem.metadata.scoringInput === "object"
+    ? normalizeLegacyScoringInput(caseItem.metadata.scoringInput as Record<string, unknown>)
+    : {};
 }

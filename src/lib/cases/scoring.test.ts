@@ -1,49 +1,58 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateCaseScore } from "./scoring";
+import { calculateCaseScore, normalizeLegacyScoringInput } from "./scoring";
 
 describe("calculateCaseScore", () => {
   it("рахує гарячий кейс від 10 балів", () => {
     const result = calculateCaseScore({
-      launchDate: "2026-05-01",
-      permissionStatus: "Так",
-      hasShowcase: true,
-      isRecognizableClient: true,
+      hasPermissionChance: true,
+      hasVisualShowcase: true,
+      hasClientTask: true,
+      hasSprofSolution: true,
       hasMetricOrEffect: true,
+      isMarketRelevant: true,
     });
 
-    expect(result.score).toBe(12);
+    expect(result.score).toBe(10);
     expect(result.priority).toBe("Гарячий кейс");
   });
 
   it("рахує потенційний кейс у діапазоні 6-9", () => {
     const result = calculateCaseScore({
-      permissionStatus: "Уточнюється",
-      hasShowcase: true,
-      isComplexProject: true,
-      hasCommentPerson: true,
+      hasPermissionChance: true,
+      hasVisualShowcase: true,
+      hasClientTask: true,
+      hasSprofSolution: true,
     });
 
-    expect(result.score).toBe(6);
+    expect(result.score).toBe(7);
     expect(result.priority).toBe("Потенційний кейс");
   });
 
-  it("рахує спостереження в діапазоні 0-5", () => {
+  it("рахує спостереження у діапазоні 0-5", () => {
     const result = calculateCaseScore({
-      permissionStatus: "Ні",
-      hasPhotoOrVideo: true,
-      hasCommentPerson: true,
+      hasClientTask: true,
+      isMarketRelevant: true,
+      hasVisualHook: true,
     });
 
-    expect(result.score).toBe(2);
+    expect(result.score).toBe(3);
     expect(result.priority).toBe("Спостерігаємо");
   });
 
-  it("не додає одночасно 3 і 1 бал за дозвіл", () => {
-    const approved = calculateCaseScore({ permissionStatus: "Так" });
-    const pending = calculateCaseScore({ permissionStatus: "Уточнюється" });
+  it("зберігає сумісність зі старими полями скорингу", () => {
+    const input = normalizeLegacyScoringInput({
+      permissionStatus: "Так",
+      hasShowcase: true,
+      isComplexProject: true,
+      isRecognizableClient: true,
+      hasPhotoOrVideo: true,
+      launchDate: "2026-05-10",
+    });
 
-    expect(approved.score).toBe(3);
-    expect(pending.score).toBe(1);
+    const result = calculateCaseScore(input);
+
+    expect(result.score).toBe(10);
+    expect(result.priority).toBe("Гарячий кейс");
   });
 });

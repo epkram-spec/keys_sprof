@@ -65,6 +65,9 @@ export function getLaunchDate(caseItem: CaseRow) {
 
 export function getPermission(caseItem: CaseRow) {
   const scoringInput = getScoringInput(caseItem);
+  if (typeof scoringInput.hasPermissionChance === "boolean") {
+    return scoringInput.hasPermissionChance ? "Так" : "Ні";
+  }
   const permission = scoringInput.permissionStatus;
   return typeof permission === "string" ? permission : "";
 }

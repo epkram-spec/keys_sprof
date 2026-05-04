@@ -6,6 +6,7 @@ import {
 } from "@/app/(private)/admin/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import type { AppRole } from "@/lib/auth/types";
 import { roleLabels } from "@/lib/auth/types";
 import { formatDateTime } from "@/lib/cases/format";
@@ -95,19 +96,25 @@ export default async function AdminPage() {
     <>
       <PageHeader
         title="Адміністрування"
-        description="Мінімальна панель для користувачів, довідників, архіву і системних журналів."
+        description="Стисла панель для користувачів, довідників, архіву і системних журналів. Пояснення відкриваються через значок поруч із короткими назвами."
       />
 
-      <section className="mb-6 rounded-lg border bg-card p-5">
-        <h2 className="text-lg font-semibold">Створення користувача</h2>
+      <section className="mb-6 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          Створення користувача
+          <InfoHint label="Реєстрація з інтерфейсу закрита. Користувач створюється в Supabase Authentication, а роль виставляється тут." />
+        </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Реєстрація з інтерфейсу закрита. Створюй користувача в Supabase Dashboard у розділі Authentication, Users, Add user.
-          Після створення перевір запис у `profiles` і вистав роль тут. Перший адміністратор: epkram@gmail.com.
+          Створи користувача в Supabase Dashboard: Authentication, Users, Add user. Після створення перевір запис у profiles і вистав роль нижче.
+          Перший адміністратор: epkram@gmail.com.
         </p>
       </section>
 
-      <section className="mb-6 rounded-lg border bg-card p-5">
-        <h2 className="text-lg font-semibold">Користувачі</h2>
+      <section className="mb-6 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          Користувачі
+          <InfoHint label="Роль визначає меню і доступ: менеджер бачить свої кейси, маркетинг працює зі статусами, керівник бачить зведення, адміністратор керує системою." />
+        </h2>
         <div className="mt-4 space-y-3">
           {((users ?? []) as ProfileRow[]).map((user) => (
             <form className="grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[1.2fr_0.8fr_auto_auto]" action={updateUserRoleAction} key={user.id}>
@@ -116,13 +123,16 @@ export default async function AdminPage() {
                 <p className="font-medium">{user.display_name ?? user.email}</p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
-              <select className="h-10 rounded-md border bg-card px-3" defaultValue={user.role} name="role">
-                {(["manager", "marketing", "leader", "admin"] as AppRole[]).map((role) => (
-                  <option key={role} value={role}>
-                    {roleLabels[role]}
-                  </option>
-                ))}
-              </select>
+              <label className="text-sm font-medium">
+                Роль
+                <select className="mt-2 h-10 w-full rounded-md border bg-card px-3" defaultValue={user.role} name="role">
+                  {(["manager", "marketing", "leader", "admin"] as AppRole[]).map((role) => (
+                    <option key={role} value={role}>
+                      {roleLabels[role]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="flex items-center gap-2 text-sm font-medium">
                 <input defaultChecked={user.is_active} name="isActive" type="checkbox" />
                 Активний
@@ -134,12 +144,15 @@ export default async function AdminPage() {
       </section>
 
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
-        <DirectoryPanel action={upsertSegmentAction} items={(segments ?? []) as DirectoryRow[]} title="Сегменти" />
-        <DirectoryPanel action={upsertCityAction} items={(cities ?? []) as DirectoryRow[]} title="Міста" />
+        <DirectoryPanel action={upsertSegmentAction} hint="Сегмент допомагає фільтрувати кейси за ринком або напрямом клієнта." items={(segments ?? []) as DirectoryRow[]} title="Сегменти" />
+        <DirectoryPanel action={upsertCityAction} hint="Місто використовується у фільтрах, звітах і плануванні зйомки." items={(cities ?? []) as DirectoryRow[]} title="Міста" />
       </div>
 
-      <section className="mb-6 rounded-lg border bg-card p-5">
-        <h2 className="text-lg font-semibold">Архів кейсів</h2>
+      <section className="mb-6 rounded-lg border bg-card p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          Архів кейсів
+          <InfoHint label="Архів прибирає кейс з робочих списків, але не видаляє його з бази." />
+        </h2>
         <div className="mt-4 space-y-3">
           {((cases ?? []) as unknown as CaseAdminRow[]).map((caseItem) => (
             <form className="flex flex-col gap-3 rounded-md border bg-background p-3 md:flex-row md:items-center md:justify-between" action={archiveCaseAction} key={caseItem.id}>
@@ -166,16 +179,21 @@ export default async function AdminPage() {
 
 function DirectoryPanel({
   action,
+  hint,
   items,
   title,
 }: {
   action: (formData: FormData) => Promise<void>;
+  hint: string;
   items: DirectoryRow[];
   title: string;
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        {title}
+        <InfoHint label={hint} />
+      </h2>
       <form action={action} className="mt-4 grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[1fr_100px_auto]">
         <input className="h-10 rounded-md border bg-card px-3" name="name" placeholder="Нова назва" />
         <input className="h-10 rounded-md border bg-card px-3" name="sortOrder" placeholder="Порядок" type="number" />
@@ -207,8 +225,11 @@ function DirectoryPanel({
 
 function LogPanel({ activity }: { activity: ActivityRow[] }) {
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <h2 className="text-lg font-semibold">Журнал важливих дій</h2>
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        Журнал важливих дій
+        <InfoHint label="Тут видно службові зміни: ролі, довідники, архів, статуси маркетингу, імпорт і файли." />
+      </h2>
       <div className="mt-4 space-y-3">
         {activity.length ? activity.map((item) => (
           <article className="rounded-md border bg-background p-3" key={item.id}>
@@ -225,8 +246,11 @@ function LogPanel({ activity }: { activity: ActivityRow[] }) {
 
 function SystemNotificationsPanel({ events }: { events: NotificationEventRow[] }) {
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <h2 className="text-lg font-semibold">Системні сповіщення і помилки доставки</h2>
+    <section className="rounded-lg border bg-card p-5 shadow-sm">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        Системні сповіщення
+        <InfoHint label="Тут збираються критичні події: помилки доставки, імпорту та гарячі кейси." />
+      </h2>
       <div className="mt-4 space-y-3">
         {events.length ? events.map((event) => (
           <article className="rounded-md border bg-background p-3" key={event.id}>
