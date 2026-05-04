@@ -1,21 +1,10 @@
 import Link from "next/link";
-import {
-  BarChart3,
-  Bell,
-  FileInput,
-  FolderKanban,
-  Home,
-  LogOut,
-  Megaphone,
-  PlusCircle,
-  Settings,
-  Shield,
-} from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 
 import { env } from "@/env";
 import { logoutAction } from "@/app/(private)/actions";
 import { Button } from "@/components/ui/button";
-import { NavLink } from "@/components/layout/nav-link";
+import { NavLink, type NavIconName } from "@/components/layout/nav-link";
 import type { AppRole, Profile } from "@/lib/auth/types";
 import { roleLabels } from "@/lib/auth/types";
 import type { NotificationRecipientRow } from "@/lib/notifications/types";
@@ -23,18 +12,18 @@ import type { NotificationRecipientRow } from "@/lib/notifications/types";
 const navigation: Array<{
   href: string;
   label: string;
-  icon: typeof Home;
+  iconName: NavIconName;
   roles: AppRole[];
 }> = [
-  { href: "/overview", label: "Огляд", icon: Home, roles: ["manager", "marketing", "leader", "admin"] },
-  { href: "/cases", label: "Кейси", icon: FolderKanban, roles: ["manager", "marketing", "leader", "admin"] },
-  { href: "/cases/new", label: "Новий кейс", icon: PlusCircle, roles: ["manager", "leader", "admin"] },
-  { href: "/marketing", label: "Маркетинг", icon: Megaphone, roles: ["marketing", "leader", "admin"] },
-  { href: "/notifications", label: "Сповіщення", icon: Bell, roles: ["manager", "marketing", "leader", "admin"] },
-  { href: "/imports", label: "Імпорт", icon: FileInput, roles: ["admin"] },
-  { href: "/reports", label: "Звіти", icon: BarChart3, roles: ["leader", "admin"] },
-  { href: "/settings", label: "Налаштування", icon: Settings, roles: ["manager", "marketing", "leader", "admin"] },
-  { href: "/admin", label: "Адміністрування", icon: Shield, roles: ["admin"] },
+  { href: "/overview", label: "Огляд", iconName: "overview", roles: ["manager", "marketing", "leader", "admin"] },
+  { href: "/cases", label: "Кейси", iconName: "cases", roles: ["manager", "marketing", "leader", "admin"] },
+  { href: "/cases/new", label: "Новий кейс", iconName: "newCase", roles: ["manager", "leader", "admin"] },
+  { href: "/marketing", label: "Маркетинг", iconName: "marketing", roles: ["marketing", "leader", "admin"] },
+  { href: "/notifications", label: "Сповіщення", iconName: "notifications", roles: ["manager", "marketing", "leader", "admin"] },
+  { href: "/imports", label: "Імпорт", iconName: "imports", roles: ["admin"] },
+  { href: "/reports", label: "Звіти", iconName: "reports", roles: ["leader", "admin"] },
+  { href: "/settings", label: "Налаштування", iconName: "settings", roles: ["manager", "marketing", "leader", "admin"] },
+  { href: "/admin", label: "Адміністрування", iconName: "admin", roles: ["admin"] },
 ];
 
 export function AppShell({
@@ -59,7 +48,7 @@ export function AppShell({
         </div>
         <nav className="grid gap-1 p-3">
           {availableNavigation.map((item) => (
-            <NavLink href={item.href} icon={item.icon} key={item.href} label={item.label} />
+            <NavLink href={item.href} iconName={item.iconName} key={item.href} label={item.label} />
           ))}
         </nav>
       </aside>
