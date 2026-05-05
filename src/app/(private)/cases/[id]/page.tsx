@@ -5,7 +5,7 @@ import { addCommentAction, transferToMarketingAction, uploadCaseFileAction } fro
 import { CaseForm } from "@/components/cases/case-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { getPriorityTone, getStageTone, StatusPill } from "@/components/ui/status-pill";
+import { getPriorityTone, getStageTone, getToneCardClass, StatusPill } from "@/components/ui/status-pill";
 import { formatDateTime, getMetadataText } from "@/lib/cases/format";
 import type { CaseFileRow } from "@/lib/cases/files";
 import { scoringCriteria, type ScoringResult } from "@/lib/cases/scoring";
@@ -196,10 +196,13 @@ function StageStepper({ currentStage }: { currentStage: string }) {
         const isCurrent = stage === currentStage;
         const isDone = currentIndex >= 0 && index < currentIndex;
         return (
-          <div className={isCurrent ? "" : isDone ? "opacity-80" : "opacity-60"} key={stage}>
-            <StatusPill className="w-full justify-start text-left text-sm" tone={isCurrent ? getStageTone(stage) : isDone ? "green" : "slate"}>
+          <div
+            className={`rounded-md border px-3 py-2 text-sm ${getToneCardClass(isCurrent ? getStageTone(stage) : isDone ? "green" : "slate")} ${
+              isCurrent ? "font-semibold shadow-sm" : isDone ? "opacity-85" : "opacity-65"
+            }`}
+            key={stage}
+          >
             {stage}
-            </StatusPill>
           </div>
         );
       })}
@@ -321,7 +324,7 @@ function formatFileSize(sizeBytes: number | null) {
 }
 
 function TransferPanel({ caseId, marketingStatus }: { caseId: string; marketingStatus: string | null }) {
-  const alreadyTransferred = marketingStatus === "Перевірити";
+  const isInMarketing = Boolean(marketingStatus && marketingStatus !== "Новий");
 
   return (
     <section className="rounded-lg border bg-card p-5">
@@ -331,8 +334,8 @@ function TransferPanel({ caseId, marketingStatus }: { caseId: string; marketingS
       </p>
       <form action={transferToMarketingAction} className="mt-4">
         <input name="caseId" type="hidden" value={caseId} />
-        <Button className="w-full" disabled={alreadyTransferred} type="submit">
-          {alreadyTransferred ? "Уже передано" : "Передати в маркетинг"}
+        <Button className="w-full" disabled={isInMarketing} type="submit">
+          {isInMarketing ? "Уже в роботі маркетингу" : "Передати в маркетинг"}
         </Button>
       </form>
     </section>
