@@ -5,6 +5,7 @@ import { addCommentAction, transferToMarketingAction, uploadCaseFileAction } fro
 import { CaseForm } from "@/components/cases/case-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { getPriorityTone, getStageTone, StatusPill } from "@/components/ui/status-pill";
 import { formatDateTime, getMetadataText } from "@/lib/cases/format";
 import type { CaseFileRow } from "@/lib/cases/files";
 import { scoringCriteria, type ScoringResult } from "@/lib/cases/scoring";
@@ -195,17 +196,10 @@ function StageStepper({ currentStage }: { currentStage: string }) {
         const isCurrent = stage === currentStage;
         const isDone = currentIndex >= 0 && index < currentIndex;
         return (
-          <div
-            className={
-              isCurrent
-                ? "rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary"
-                : isDone
-                  ? "rounded-md border bg-muted/50 px-3 py-2 text-sm text-foreground"
-                  : "rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground"
-            }
-            key={stage}
-          >
+          <div className={isCurrent ? "" : isDone ? "opacity-80" : "opacity-60"} key={stage}>
+            <StatusPill className="w-full justify-start text-left text-sm" tone={isCurrent ? getStageTone(stage) : isDone ? "green" : "slate"}>
             {stage}
+            </StatusPill>
           </div>
         );
       })}
@@ -297,9 +291,7 @@ function ScoringExplanation({ caseItem }: { caseItem: CaseRow }) {
             key={item.label}
           >
             <span className={item.matched ? "font-medium" : "text-muted-foreground"}>{getScoringLabel(item.label)}</span>
-            <span className={item.matched ? "font-semibold text-primary" : "text-muted-foreground"}>
-              {item.matched ? `+${item.points}` : "0"}
-            </span>
+            <StatusPill tone={item.matched ? getPriorityTone(scoring.priority) : "slate"}>{item.matched ? `+${item.points}` : "0"}</StatusPill>
           </div>
         ))}
       </div>

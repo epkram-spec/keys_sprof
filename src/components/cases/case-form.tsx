@@ -4,6 +4,7 @@ import { createCaseAction, updateCaseAction } from "@/app/(private)/cases/action
 import { StageDateFields } from "@/components/cases/stage-date-fields";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
+import { getPriorityTone, getToneCardClass } from "@/components/ui/status-pill";
 import { getMetadataText } from "@/lib/cases/format";
 import { normalizeLegacyScoringInput, scoringCriteria } from "@/lib/cases/scoring";
 import { type CaseRow, type DirectoryOption, projectStatusOptions } from "@/lib/cases/types";
@@ -60,7 +61,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
               вписати вручну.
             </p>
           </div>
-          <div className="w-full rounded-md border bg-muted/40 px-3 py-2 md:w-52">
+          <div className={`w-full rounded-md border px-3 py-2 md:w-52 ${getToneCardClass(getPriorityTone(priority))}`}>
             <p className="text-xs font-medium uppercase text-muted-foreground">Оцінка</p>
             <p className="mt-1 text-xl font-semibold">{score} балів</p>
             <p className="text-xs text-muted-foreground">{priority}</p>

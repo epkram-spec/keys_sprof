@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { getMetricTone, getToneCardClass } from "@/components/ui/status-pill";
 import type { AppRole } from "@/lib/auth/types";
 import type { CaseRow } from "@/lib/cases/types";
 import { buildReportSummary } from "@/lib/reports/summary";
@@ -109,9 +110,10 @@ export default async function ReportsPage() {
 }
 
 function MetricCard({ label, value }: { label: string; value: number }) {
+  const active = value > 0;
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <p className="text-sm font-medium text-muted-foreground">{label}</p>
+    <section className={`rounded-lg border p-5 ${getToneCardClass(active ? getMetricTone(label) : "neutral")}`}>
+      <p className="text-sm font-medium opacity-80">{label}</p>
       <p className="mt-3 text-3xl font-semibold">{value}</p>
     </section>
   );

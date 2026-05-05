@@ -1,10 +1,12 @@
 import Link from "next/link";
+import type { ComponentProps } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { updateMarketingStatusAction } from "@/app/(private)/marketing/actions";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
+import { getMarketingTone, getPermissionTone, getPriorityTone, StatusPill } from "@/components/ui/status-pill";
 import { formatDateTime } from "@/lib/cases/format";
 import { normalizeLegacyScoringInput } from "@/lib/cases/scoring";
 import { type CaseRow, type DirectoryOption, marketingStatusOptions } from "@/lib/cases/types";
@@ -142,8 +144,8 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
       <section className="space-y-4">
         {groupedCases.map((group) => (
           <div className="rounded-lg border bg-card shadow-sm" key={group.status}>
-            <div className="flex flex-col gap-1 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
-              <h2 className="text-base font-semibold">{group.status}</h2>
+            <div className="flex flex-col gap-2 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
+              <StatusPill className="text-sm" tone={getMarketingTone(group.status)}>{group.status}</StatusPill>
               <p className="text-sm text-muted-foreground">{group.cases.length} кейсів</p>
             </div>
             <div className="grid gap-3 p-3 2xl:grid-cols-2">
@@ -177,10 +179,10 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
           <div className="mt-3 grid min-w-0 gap-2 text-xs text-muted-foreground md:grid-cols-[repeat(auto-fit,minmax(190px,1fr))]">
             <Meta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
             <Meta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
-            <Meta label="Пріоритет" value={`${caseItem.score ?? 0} · ${priority}`} />
+            <Meta label="Пріоритет" tone={getPriorityTone(priority)} value={`${caseItem.score ?? 0} · ${priority}`} />
             <Meta label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
-            <Meta label="Дозвіл" value={permission || "Ні"} />
-            <Meta label="Дати" value={datesReady ? "Є дати" : "Без дат"} />
+            <Meta label="Дозвіл" tone={getPermissionTone(permission || "Ні")} value={permission || "Ні"} />
+            <Meta label="Дати" tone={datesReady ? "blue" : "orange"} value={datesReady ? "Є дати" : "Без дат"} />
           </div>
         </div>
         <form action={updateMarketingStatusAction} className="grid gap-2 self-start">
@@ -212,11 +214,15 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
   );
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function Meta({ label, tone, value }: { label: string; tone?: ComponentProps<typeof StatusPill>["tone"]; value: string }) {
   return (
     <div className="flex min-w-0 justify-between gap-3 rounded-md bg-muted/35 px-2 py-1">
       <span>{label}</span>
-      <span className="min-w-0 break-words text-right font-medium text-foreground">{value}</span>
+      {tone ? (
+        <StatusPill className="max-w-full break-words text-right" tone={tone}>{value}</StatusPill>
+      ) : (
+        <span className="min-w-0 break-words text-right font-medium text-foreground">{value}</span>
+      )}
     </div>
   );
 }

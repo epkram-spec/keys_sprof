@@ -4,6 +4,7 @@ import { Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
+import { getMarketingTone, getPermissionTone, getPriorityTone, getProjectTone, getStageTone, StatusPill } from "@/components/ui/status-pill";
 import { formatDateTime } from "@/lib/cases/format";
 import {
   type CaseRow,
@@ -161,14 +162,14 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
       <MobileMeta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
       <MobileMeta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
       <div className="flex flex-wrap items-center gap-2 lg:block">
-        <StatusPill>{caseItem.score ?? 0} · {priority}</StatusPill>
+        <StatusPill tone={getPriorityTone(priority)}>{caseItem.score ?? 0} · {priority}</StatusPill>
       </div>
       <div className="flex flex-wrap gap-2">
-        <StatusPill>{caseItem.project_status ?? "Новий"}</StatusPill>
-        <StatusPill>{caseItem.marketing_status ?? "Новий"}</StatusPill>
+        <StatusPill tone={getProjectTone(caseItem.project_status ?? "Новий")}>{caseItem.project_status ?? "Новий"}</StatusPill>
+        <StatusPill tone={getMarketingTone(caseItem.marketing_status ?? "Новий")}>{caseItem.marketing_status ?? "Новий"}</StatusPill>
       </div>
       <div className="flex flex-wrap gap-2">
-        <StatusPill>{permission || "Без дозволу"}</StatusPill>
+        <StatusPill tone={getPermissionTone(permission || "Без дозволу")}>{permission || "Без дозволу"}</StatusPill>
         <StagePill stage={stage} />
       </div>
     </Link>
@@ -236,19 +237,11 @@ function MobileMeta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function StatusPill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="h-fit w-fit rounded-md border bg-background px-2.5 py-1 text-xs font-medium text-foreground">
-      {children}
-    </span>
-  );
-}
-
 function StagePill({ stage }: { stage: string }) {
   return (
-    <span className="h-fit w-fit rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+    <StatusPill tone={getStageTone(stage)}>
       {stage || "Без стадії"}
-    </span>
+    </StatusPill>
   );
 }
 

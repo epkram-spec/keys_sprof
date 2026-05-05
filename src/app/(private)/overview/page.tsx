@@ -4,6 +4,7 @@ import { Activity, AlertTriangle, CalendarDays, Flame, Sparkles } from "lucide-r
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
+import { getMarketingTone, getMetricTone, getToneCardClass, StatusPill } from "@/components/ui/status-pill";
 import type { AppRole } from "@/lib/auth/types";
 import type { CaseRow } from "@/lib/cases/types";
 import { buildReportSummary } from "@/lib/reports/summary";
@@ -103,8 +104,10 @@ export default async function OverviewPage() {
                   <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">{caseItem.summary}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 md:justify-end">
-                  <Badge>{caseItem.score ?? 0} балів</Badge>
-                  <Badge>{caseItem.marketing_status ?? "Новий"}</Badge>
+                  <StatusPill tone={getMetricTone(caseItem.score && caseItem.score >= 10 ? "Гарячі" : caseItem.score && caseItem.score >= 6 ? "Потенційні" : "")}>
+                    {caseItem.score ?? 0} балів
+                  </StatusPill>
+                  <StatusPill tone={getMarketingTone(caseItem.marketing_status ?? "Новий")}>{caseItem.marketing_status ?? "Новий"}</StatusPill>
                 </div>
               </Link>
             ))
@@ -128,25 +131,24 @@ function OverviewMetric({
   label: string;
   value: number;
 }) {
+  const tone = active ? getMetricTone(label) : "neutral";
+
   return (
     <div
       className={cn(
-        "rounded-lg border bg-background p-3 transition-colors",
-        active && "border-primary/40 bg-primary/10 shadow-sm",
+        "rounded-lg border p-3 transition-colors",
+        getToneCardClass(tone),
+        active && "shadow-sm",
       )}
     >
-      <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 text-sm opacity-80">
         <span>{label}</span>
-        {Icon ? <Icon className={cn("size-4", active && "text-primary")} aria-hidden="true" /> : null}
+        {Icon ? <Icon className="size-4" aria-hidden="true" /> : null}
       </div>
       <p className="mt-2 text-3xl font-semibold">{value}</p>
-      {active ? <p className="mt-1 text-xs font-medium text-primary">Є зміна</p> : null}
+      {active ? <p className="mt-1 text-xs font-semibold">Є зміна</p> : null}
     </div>
   );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-md border bg-background px-2.5 py-1 text-xs font-medium">{children}</span>;
 }
 
 function getMonitoring(caseItem: CaseRow) {
