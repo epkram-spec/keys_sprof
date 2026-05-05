@@ -13,6 +13,7 @@ export type ScoringInput = {
   hasFeasibleDates?: boolean;
   launchDate?: string | null;
   permissionStatus?: string | null;
+  permissionComment?: string | null;
   isMarketRelevant?: boolean;
 };
 
@@ -29,84 +30,84 @@ export type ScoringResult = {
 export const scoringCriteria = [
   {
     key: "hasPermissionChance",
-    shortLabel: "Дозвіл",
-    fullLabel: "Є дозвіл на зйомку або реальний шанс погодити",
+    shortLabel: "Дозвіл на зйомку",
+    fullLabel: "Можна знімати цей обʼєкт або є реальний шанс погодити зйомку",
     points: 2,
     type: "boolean",
   },
   {
     key: "hasVisualShowcase",
-    shortLabel: "Візуал",
+    shortLabel: "Є що показати",
     fullLabel: "Є що показати: кухня, зона, процес, монтаж або навчання",
     points: 2,
     type: "boolean",
   },
   {
     key: "hasClientTask",
-    shortLabel: "Задача",
+    shortLabel: "Задача клієнта",
     fullLabel: "Є задача клієнта, яку можна описати одним реченням",
     points: 1,
     type: "text",
   },
   {
     key: "hasSprofSolution",
-    shortLabel: "Рішення",
+    shortLabel: "Рішення SPROF",
     fullLabel: "Є рішення SPROF: підбір, інтеграція, запуск або інша участь команди",
     points: 2,
     type: "text",
   },
   {
     key: "hasMetricOrEffect",
-    shortLabel: "Ефект",
-    fullLabel: "Є ефект або цифра: швидкість, стабільність, втрати, люди чи інший результат",
+    shortLabel: "Очікуваний результат",
+    fullLabel: "Результат, який заклад очікує після співпраці зі SPROF",
     points: 2,
     type: "text",
   },
   {
     key: "hasVisualHook",
-    shortLabel: "Родзинка",
-    fullLabel: "Є візуальна родзинка: складні умови, темп або нестандартна задача",
+    shortLabel: "Особливість проєкту",
+    fullLabel: "Нестандартна деталь або будь-що, що вирізняє цей проєкт серед інших",
     points: 1,
     type: "text",
   },
   {
     key: "hasHighProfileObject",
-    shortLabel: "Гучний",
-    fullLabel: "Обʼєкт або клієнт впізнаваний, гучний або цікавий для ринку",
+    shortLabel: "Відомий обʼєкт",
+    fullLabel: "Якщо це відомий або популярний обʼєкт - так, якщо ні - ні",
     points: 2,
     type: "boolean",
   },
   {
     key: "hasBigCheck",
-    shortLabel: "Чек",
-    fullLabel: "Великий чек або стратегічно важливий проєкт",
+    shortLabel: "Дорогий обʼєкт",
+    fullLabel: "Коли замовляють багато позицій або проєкт на велику суму",
     points: 1,
     type: "boolean",
   },
   {
     key: "hasBeforeOpportunity",
-    shortLabel: "До",
-    fullLabel: "Можемо зняти обʼєкт до проєктування, монтажу або запуску",
+    shortLabel: "Зйомка до початку",
+    fullLabel: "Можемо зняти обʼєкт до початку робіт",
     points: 1,
     type: "boolean",
   },
   {
     key: "hasDuringOpportunity",
-    shortLabel: "Під час",
-    fullLabel: "Можемо зняти процес під час проєктування, монтажу або запуску",
+    shortLabel: "Зйомка під час монтажу",
+    fullLabel: "Можемо зняти процес під час монтажу або запуску",
     points: 1,
     type: "boolean",
   },
   {
     key: "hasAfterOpportunity",
-    shortLabel: "Після",
+    shortLabel: "Зйомка після монтажу",
     fullLabel: "Можемо зняти результат після запуску або під робочим навантаженням",
     points: 1,
     type: "boolean",
   },
   {
     key: "hasFeasibleDates",
-    shortLabel: "Дата",
+    shortLabel: "Планова дата",
     fullLabel: "Є планова дата стадії, щоб маркетинг встиг підготувати виїзд",
     points: 2,
     type: "boolean",
@@ -130,13 +131,15 @@ export function isScoringCriterionMatched(input: ScoringInput, key: ScoringCrite
 
 export function calculateCaseScore(input: ScoringInput): ScoringResult {
   const normalizedInput = normalizeLegacyScoringInput(input);
+  const permissionDenied = normalizedInput.permissionStatus === "Ні";
+
   const details = scoringCriteria.map((criterion) => ({
     label: criterion.fullLabel,
     points: criterion.points,
-    matched: isScoringCriterionMatched(normalizedInput, criterion.key),
+    matched: permissionDenied ? false : isScoringCriterionMatched(normalizedInput, criterion.key),
   }));
 
-  const score = details.reduce((total, item) => total + (item.matched ? item.points : 0), 0);
+  const score = permissionDenied ? 0 : details.reduce((total, item) => total + (item.matched ? item.points : 0), 0);
 
   if (score >= 10) {
     return { score, priority: "Гарячий кейс", details };
@@ -150,6 +153,15 @@ export function calculateCaseScore(input: ScoringInput): ScoringResult {
 }
 
 export function normalizeLegacyScoringInput(input: ScoringInput & Record<string, unknown>): ScoringInput {
+  const permissionStatus =
+    typeof input.permissionStatus === "string"
+      ? input.permissionStatus
+      : input.hasPermissionChance === false
+        ? "Ні"
+        : input.hasPermissionChance === true
+          ? "Так"
+          : null;
+
   return {
     hasPermissionChance:
       input.hasPermissionChance ??
@@ -176,6 +188,7 @@ export function normalizeLegacyScoringInput(input: ScoringInput & Record<string,
     hasAfterOpportunity: input.hasAfterOpportunity ?? false,
     hasFeasibleDates: input.hasFeasibleDates ?? Boolean(input.launchDate),
     launchDate: input.launchDate,
-    permissionStatus: input.permissionStatus,
+    permissionStatus,
+    permissionComment: typeof input.permissionComment === "string" ? input.permissionComment : null,
   };
 }

@@ -76,6 +76,10 @@ function getStageHistory(value: unknown) {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
 }
 
+function shootingAnswerToBoolean(value: string | null) {
+  return value === "Так";
+}
+
 function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, unknown> = {}, actorUserId = "") {
   const previousMonitoring = getMetadataObject(currentMetadata.marketingMonitoring);
   const previousStage = typeof previousMonitoring.projectStage === "string" ? previousMonitoring.projectStage : null;
@@ -105,6 +109,14 @@ function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, u
         },
       ]
     : getStageHistory(previousMonitoring.stageHistory);
+  const hasPermissionChance = booleanFromFormValue(formData.get("hasPermissionChance"));
+  const permissionStatus = hasPermissionChance ? "Так" : "Ні";
+  const permissionComment = readOptionalText(formData, "permissionComment");
+  const shootingWindows = {
+    before: readOptionalText(formData, "shootingBefore") ?? "Не відомо",
+    during: readOptionalText(formData, "shootingDuring") ?? "Не відомо",
+    after: readOptionalText(formData, "shootingAfter") ?? "Не відомо",
+  };
   const marketingMonitoring = {
     paymentStatus: readOptionalText(formData, "paymentStatus"),
     equipmentApproved: booleanFromFormValue(formData.get("equipmentApproved")),
@@ -113,11 +125,15 @@ function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, u
     projectStage,
     stageChangedAt,
     stageHistory,
+    permissionComment,
+    shootingWindows,
     isHighProfile: booleanFromFormValue(formData.get("isHighProfile")),
     bigCheck: booleanFromFormValue(formData.get("bigCheck")),
   };
   const scoringInput = {
-    hasPermissionChance: booleanFromFormValue(formData.get("hasPermissionChance")),
+    hasPermissionChance,
+    permissionStatus,
+    permissionComment,
     hasVisualShowcase: booleanFromFormValue(formData.get("hasVisualShowcase")),
     hasClientTask: readOptionalText(formData, "hasClientTask"),
     hasSprofSolution: readOptionalText(formData, "hasSprofSolution"),
@@ -125,9 +141,9 @@ function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, u
     hasVisualHook: readOptionalText(formData, "hasVisualHook"),
     hasHighProfileObject: marketingMonitoring.isHighProfile,
     hasBigCheck: marketingMonitoring.bigCheck,
-    hasBeforeOpportunity: booleanFromFormValue(formData.get("hasBeforeOpportunity")),
-    hasDuringOpportunity: booleanFromFormValue(formData.get("hasDuringOpportunity")),
-    hasAfterOpportunity: booleanFromFormValue(formData.get("hasAfterOpportunity")),
+    hasBeforeOpportunity: shootingAnswerToBoolean(shootingWindows.before),
+    hasDuringOpportunity: shootingAnswerToBoolean(shootingWindows.during),
+    hasAfterOpportunity: shootingAnswerToBoolean(shootingWindows.after),
     hasFeasibleDates: Boolean(marketingMonitoring.stagePlannedDate),
     launchDate: marketingMonitoring.stagePlannedDate,
   };
@@ -172,6 +188,10 @@ export async function createCaseAction(formData: FormData) {
 
   if (!title || !summary || !segmentId || !projectStatus || !cityName) {
     redirect("/cases/new?error=required");
+  }
+
+  if (!booleanFromFormValue(formData.get("hasPermissionChance")) && !readText(formData, "permissionComment")) {
+    redirect("/cases/new?error=permission_comment");
   }
 
   const { supabase, user } = await getCurrentUser();
@@ -220,6 +240,10 @@ export async function updateCaseAction(formData: FormData) {
 
   if (!caseId || !title || !summary || !segmentId || !projectStatus || !cityName) {
     redirect(caseId ? `/cases/${caseId}?error=required` : "/cases?error=missing");
+  }
+
+  if (!booleanFromFormValue(formData.get("hasPermissionChance")) && !readText(formData, "permissionComment")) {
+    redirect(`/cases/${caseId}?error=permission_comment`);
   }
 
   const { supabase, user } = await getCurrentUser();

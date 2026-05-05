@@ -19,7 +19,7 @@ export function StageDateFields({ defaultDate = "", defaultStage = "" }: StageDa
       <label className="text-sm font-medium">
         <span className="flex items-center gap-2">
           Стадія проєкту
-          <InfoHint label="Оплата стоїть першою, бо без неї проєкт не рухається. Далі менеджер оновлює стадію, коли проєкт переходить вперед." />
+          <InfoHint label="Менеджер оновлює стадію, коли проєкт переходить на наступний етап. Якщо стадія довго не змінюється, система нагадає перевірити кейс." />
         </span>
         <select
           className="mt-2 h-10 w-full rounded-md border bg-background px-3"
@@ -40,7 +40,7 @@ export function StageDateFields({ defaultDate = "", defaultStage = "" }: StageDa
         <label className="text-sm font-medium">
           <span className="flex items-center gap-2">
             {label}
-            <InfoHint label="Дата вводиться вручну. Якщо стадія тиждень не змінюється, менеджер отримає нагадування перевірити кейс." />
+            <InfoHint label="Дата вводиться вручну. Вона допомагає зрозуміти, коли маркетинг може встигнути на зйомку." />
           </span>
           <input
             className="mt-2 h-10 w-full rounded-md border bg-background px-3"

@@ -1,5 +1,5 @@
-import { PageHeader } from "@/components/layout/page-header";
 import { CaseForm } from "@/components/cases/case-form";
+import { PageHeader } from "@/components/layout/page-header";
 import type { DirectoryOption } from "@/lib/cases/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -11,6 +11,7 @@ type NewCasePageProps = {
 
 const errorMessages: Record<string, string> = {
   required: "Заповніть обовʼязкові поля.",
+  permission_comment: "Якщо зйомка заборонена, напишіть короткий коментар чому.",
   create: "Не вдалося додати кейс. Перевірте дані й спробуйте ще раз.",
 };
 
@@ -24,7 +25,10 @@ export default async function NewCasePage({ searchParams }: NewCasePageProps) {
 
   return (
     <>
-      <PageHeader title="Додати кейс" description="Обовʼязкові поля розміщені зверху, додатковий контекст - нижче." />
+      <PageHeader
+        title="Додати кейс"
+        description="Заповніть коротку інформацію про обʼєкт, стадію проєкту і те, чи можна знімати матеріал для маркетингу."
+      />
       {params.error ? (
         <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {errorMessages[params.error] ?? "Сталася помилка. Спробуйте ще раз."}

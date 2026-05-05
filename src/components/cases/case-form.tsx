@@ -1,15 +1,12 @@
+import type { ReactNode } from "react";
+
 import { createCaseAction, updateCaseAction } from "@/app/(private)/cases/actions";
 import { StageDateFields } from "@/components/cases/stage-date-fields";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getMetadataText } from "@/lib/cases/format";
 import { normalizeLegacyScoringInput, scoringCriteria } from "@/lib/cases/scoring";
-import {
-  type CaseRow,
-  type DirectoryOption,
-  marketingStatusOptions,
-  projectStatusOptions,
-} from "@/lib/cases/types";
+import { type CaseRow, type DirectoryOption, projectStatusOptions } from "@/lib/cases/types";
 
 type CaseFormProps = {
   mode: "create" | "edit";
@@ -19,7 +16,14 @@ type CaseFormProps = {
 };
 
 const textScoringFields = ["hasClientTask", "hasSprofSolution", "hasMetricOrEffect", "hasVisualHook"] as const;
-const hiddenScoringFields = ["hasFeasibleDates"];
+const hiddenScoringFields = [
+  "hasPermissionChance",
+  "hasBeforeOpportunity",
+  "hasDuringOpportunity",
+  "hasAfterOpportunity",
+  "hasFeasibleDates",
+];
+const shootingAnswerOptions = ["Так", "Ні", "Не відомо"] as const;
 
 export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
   const action = mode === "create" ? createCaseAction : updateCaseAction;
@@ -36,6 +40,12 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
   const priority = typeof metadata.priority === "string" ? metadata.priority : "Спостерігаємо";
   const stage = getMonitoringText(monitoring, "projectStage");
   const stagePlannedDate = getMonitoringText(monitoring, "stagePlannedDate") || getMonitoringText(monitoring, "keyDate");
+  const permissionStatus =
+    scoringInput.permissionStatus === "Так" || scoringInput.permissionStatus === "Ні"
+      ? scoringInput.permissionStatus
+      : scoringInput.hasPermissionChance
+        ? "Так"
+        : "";
 
   return (
     <form action={action} className="space-y-5">
@@ -44,9 +54,10 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
         <div className="mb-4 flex flex-col gap-3 border-b pb-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-base font-semibold">Основа кейсу</h2>
+            <h2 className="text-base font-semibold">Що це за обʼєкт</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Обовʼязкові поля: назва, опис, сегмент, місто і статус. Місто можна вибрати або вписати вручну.
+              Заповніть коротку назву, опис, сегмент, місто і поточний статус. Місто можна вибрати зі списку або
+              вписати вручну.
             </p>
           </div>
           <div className="w-full rounded-md border bg-muted/40 px-3 py-2 md:w-52">
@@ -74,7 +85,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
               className="mt-2 min-h-24 w-full rounded-md border bg-background px-3 py-2"
               defaultValue={caseItem?.summary ?? ""}
               name="summary"
-              placeholder="1-2 речення: що за клієнт, що робимо, чому це може бути кейсом"
+              placeholder="1-2 речення: хто клієнт, що робимо і чому це може бути кейсом"
               required
             />
           </label>
@@ -120,16 +131,16 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
 
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
         <div className="mb-4 border-b pb-4">
-          <h2 className="text-base font-semibold">Стадія і маркетинговий момент</h2>
+          <h2 className="text-base font-semibold">Стадія проєкту</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Оплата за обладнання стоїть першою. Але кейс може бути цікавим ще до монтажу, якщо можна зняти “до”, “під час” і “після”.
+            Оберіть, на якому етапі зараз проєкт. Коли проєкт переходить далі, менеджер просто оновлює стадію і дату.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <label className="text-sm font-medium">
             <span className="flex items-center gap-2">
               Оплата / передоплата
-              <InfoHint label="Позначає, чи є передоплата, повна оплата або ще немає підтвердження." />
+              <InfoHint label="Позначте, чи є передоплата, повна оплата або ще немає підтвердження. Це робочий орієнтир, а не оцінка якості кейсу." />
             </span>
             <select
               className="mt-2 h-10 w-full rounded-md border bg-background px-3"
@@ -152,14 +163,14 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
             />
             <CheckRow
               defaultChecked={Boolean(monitoring.isHighProfile)}
-              hint="Відомий заклад, мережа, держобʼєкт або кейс, який може бути гучним для ринку."
-              label="Гучний обʼєкт"
+              hint="Якщо це відомий або популярний обʼєкт - ставимо так, якщо ні - ні."
+              label="Відомий обʼєкт"
               name="isHighProfile"
             />
             <CheckRow
               defaultChecked={Boolean(monitoring.bigCheck)}
-              hint="Великий чек або стратегічно важливий проєкт."
-              label="Великий чек"
+              hint="Дорогий обʼєкт: багато позицій у замовленні або проєкт на велику суму."
+              label="Дорогий обʼєкт"
               name="bigCheck"
             />
           </div>
@@ -170,10 +181,16 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         <div className="mb-4 border-b pb-4">
           <h2 className="text-base font-semibold">Чи це кандидат на зйомку?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Текстові поля дають бали тільки тоді, коли менеджер справді описав фактуру. Короткі пункти мають пояснення поруч.
+            Виберіть короткі відповіді і додайте факти там, де потрібен текст. Підказки біля назв пояснюють, що саме
+            мається на увазі.
           </p>
         </div>
+
         <div className="grid gap-3 md:grid-cols-2">
+          <PermissionField
+            comment={scoringInput.permissionComment ?? getMonitoringText(monitoring, "permissionComment")}
+            value={permissionStatus}
+          />
           {scoringCriteria
             .filter((criterion) => !hiddenScoringFields.includes(criterion.key))
             .map((criterion) =>
@@ -195,6 +212,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
                 />
               ),
             )}
+          <ShootingWindowBlock monitoring={monitoring} scoringInput={scoringInput} />
         </div>
       </section>
 
@@ -202,8 +220,10 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         <details className="group" open={mode === "edit"}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold">Додатково</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Контакти, джерело і службові нотатки. Можна заповнити пізніше.</p>
+              <h2 className="text-base font-semibold">Контактна особа та додаткові відомості</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Контакти, джерело і службові нотатки. Можна заповнити пізніше.
+              </p>
             </div>
             <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
             <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
@@ -229,13 +249,42 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
 
       {caseItem?.marketing_status ? (
         <p className="text-sm text-muted-foreground">
-          Поточний статус маркетингу: <span className="font-medium text-foreground">{caseItem.marketing_status}</span>
+          Запропонувати маркетингу цей обʼєкт як кейс можна окремою кнопкою у правому блоці картки.
         </p>
       ) : null}
-      <input name="marketingStatus" type="hidden" value={caseItem?.marketing_status ?? marketingStatusOptions[0]} />
 
       <Button type="submit">{mode === "create" ? "Додати кейс" : "Зберегти зміни"}</Button>
     </form>
+  );
+}
+
+function PermissionField({ comment, value }: { comment: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background p-3 md:col-span-2">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-semibold">Дозвіл на зйомку</span>
+        <InfoHint label="Якщо обрано «Ні», кейс не набирає бали. Обовʼязково поясніть, чому власник не дозволив або чому цей обʼєкт не можна зняти." />
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          <span>Так</span>
+          <input className="size-4" defaultChecked={value === "Так"} name="hasPermissionChance" required type="radio" value="true" />
+        </label>
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+          <span>Ні</span>
+          <input className="size-4" defaultChecked={value === "Ні"} name="hasPermissionChance" required type="radio" value="false" />
+        </label>
+      </div>
+      <label className="mt-3 block text-sm font-medium">
+        Коментар, якщо знімати не можна
+        <textarea
+          className="mt-2 min-h-20 w-full rounded-md border bg-muted/20 px-3 py-2 text-sm font-normal"
+          defaultValue={comment}
+          name="permissionComment"
+          placeholder="Наприклад: власник проти зйомки гостей, закрита зона виробництва або немає доступу на обʼєкт."
+        />
+      </label>
+    </div>
   );
 }
 
@@ -294,6 +343,57 @@ function ScoreTextField({
   );
 }
 
+function ShootingWindowBlock({
+  monitoring,
+  scoringInput,
+}: {
+  monitoring: Record<string, unknown>;
+  scoringInput: Record<string, unknown>;
+}) {
+  const shootingWindows = getObject(monitoring.shootingWindows);
+
+  return (
+    <div className="rounded-md border bg-background p-3 md:col-span-2">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-semibold">Коли можна знімати</span>
+        <InfoHint label="Позначте, чи можна зняти обʼєкт до початку робіт, під час монтажу і після монтажу. Якщо поки незрозуміло - оберіть «Не відомо»." />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <ShootingWindowSelect
+          label="До початку"
+          name="shootingBefore"
+          value={getShootingAnswer(shootingWindows, "before", scoringInput.hasBeforeOpportunity)}
+        />
+        <ShootingWindowSelect
+          label="Під час монтажу"
+          name="shootingDuring"
+          value={getShootingAnswer(shootingWindows, "during", scoringInput.hasDuringOpportunity)}
+        />
+        <ShootingWindowSelect
+          label="Після монтажу"
+          name="shootingAfter"
+          value={getShootingAnswer(shootingWindows, "after", scoringInput.hasAfterOpportunity)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ShootingWindowSelect({ label, name, value }: { label: string; name: string; value: string }) {
+  return (
+    <label className="text-sm font-medium">
+      {label}
+      <select className="mt-2 h-10 w-full rounded-md border bg-muted/20 px-3" defaultValue={value} name={name}>
+        {shootingAnswerOptions.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function CheckRow({
   defaultChecked,
   hint,
@@ -333,7 +433,7 @@ function SelectField({
   required,
   value,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   hint?: string;
   label: string;
   name: string;
@@ -353,6 +453,10 @@ function SelectField({
   );
 }
 
+function getObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
 function getMonitoringText(monitoring: Record<string, unknown>, key: string) {
   const value = monitoring[key];
   return typeof value === "string" ? value : "";
@@ -361,6 +465,16 @@ function getMonitoringText(monitoring: Record<string, unknown>, key: string) {
 function getScoringText(scoringInput: Record<string, unknown>, key: string) {
   const value = scoringInput[key];
   return typeof value === "string" ? value : "";
+}
+
+function getShootingAnswer(source: Record<string, unknown>, key: string, legacyValue: unknown) {
+  const value = source[key];
+
+  if (value === "Так" || value === "Ні" || value === "Не відомо") {
+    return value;
+  }
+
+  return legacyValue === true ? "Так" : "Не відомо";
 }
 
 function isTextScoringField(key: string): key is (typeof textScoringFields)[number] {

@@ -108,22 +108,22 @@ export default async function AdminPage() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Адміністратор може створити користувача тут. Він одразу потрапить у Supabase Auth і в таблицю profiles.
         </p>
-        <form action={createUserAction} className="mt-4 grid gap-3 rounded-md border bg-background p-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_180px_auto_auto]">
-          <input className="h-10 rounded-md border bg-card px-3" name="email" placeholder="email@sprof.ua" required type="email" />
-          <input className="h-10 rounded-md border bg-card px-3" minLength={8} name="password" placeholder="Тимчасовий пароль" required type="text" />
-          <input className="h-10 rounded-md border bg-card px-3" name="displayName" placeholder="Імʼя" />
-          <select className="h-10 rounded-md border bg-card px-3" defaultValue="manager" name="role">
+        <form action={createUserAction} className="mt-4 grid min-w-0 gap-3 rounded-md border bg-background p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(160px,0.7fr)]">
+          <input className="h-10 min-w-0 rounded-md border bg-card px-3" name="email" placeholder="email@sprof.ua" required type="email" />
+          <input className="h-10 min-w-0 rounded-md border bg-card px-3" minLength={8} name="password" placeholder="Тимчасовий пароль" required type="text" />
+          <input className="h-10 min-w-0 rounded-md border bg-card px-3" name="displayName" placeholder="Імʼя" />
+          <select className="h-10 min-w-0 rounded-md border bg-card px-3" defaultValue="manager" name="role">
             {(["manager", "marketing", "leader", "admin"] as AppRole[]).map((role) => (
               <option key={role} value={role}>
                 {roleLabels[role]}
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-2 text-sm font-medium">
+          <label className="flex min-h-10 items-center gap-2 text-sm font-medium xl:col-span-2">
             <input defaultChecked name="isActive" type="checkbox" />
             Активний
           </label>
-          <Button type="submit">Створити</Button>
+          <Button className="w-full sm:w-auto xl:justify-self-end" type="submit">Створити</Button>
         </form>
       </section>
 
@@ -134,15 +134,15 @@ export default async function AdminPage() {
         </h2>
         <div className="mt-4 space-y-3">
           {((users ?? []) as ProfileRow[]).map((user) => (
-            <form className="grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[1.2fr_0.8fr_auto_auto]" action={updateUserRoleAction} key={user.id}>
+            <form className="grid min-w-0 gap-3 rounded-md border bg-background p-3 md:grid-cols-[minmax(0,1.2fr)_minmax(160px,0.8fr)] xl:grid-cols-[minmax(0,1.2fr)_minmax(170px,0.8fr)_auto_auto]" action={updateUserRoleAction} key={user.id}>
               <input name="userId" type="hidden" value={user.id} />
-              <div>
-                <p className="font-medium">{user.display_name ?? user.email}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+              <div className="min-w-0">
+                <p className="break-words font-medium">{user.display_name ?? user.email}</p>
+                <p className="break-words text-xs text-muted-foreground">{user.email}</p>
               </div>
               <label className="text-sm font-medium">
                 Роль
-                <select className="mt-2 h-10 w-full rounded-md border bg-card px-3" defaultValue={user.role} name="role">
+                <select className="mt-2 h-10 w-full min-w-0 rounded-md border bg-card px-3" defaultValue={user.role} name="role">
                   {(["manager", "marketing", "leader", "admin"] as AppRole[]).map((role) => (
                     <option key={role} value={role}>
                       {roleLabels[role]}
@@ -150,11 +150,11 @@ export default async function AdminPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
                 <input defaultChecked={user.is_active} name="isActive" type="checkbox" />
                 Активний
               </label>
-              <Button type="submit" variant="secondary">Зберегти</Button>
+              <Button className="w-full sm:w-auto" type="submit" variant="secondary">Зберегти</Button>
             </form>
           ))}
         </div>
@@ -172,15 +172,15 @@ export default async function AdminPage() {
         </h2>
         <div className="mt-4 space-y-3">
           {((cases ?? []) as unknown as CaseAdminRow[]).map((caseItem) => (
-            <form className="flex flex-col gap-3 rounded-md border bg-background p-3 md:flex-row md:items-center md:justify-between" action={archiveCaseAction} key={caseItem.id}>
+            <form className="flex min-w-0 flex-col gap-3 rounded-md border bg-background p-3 md:flex-row md:items-center md:justify-between" action={archiveCaseAction} key={caseItem.id}>
               <input name="caseId" type="hidden" value={caseItem.id} />
-              <div>
-                <p className="font-medium">{caseItem.title}</p>
-                <p className="text-xs text-muted-foreground">
+              <div className="min-w-0">
+                <p className="break-words font-medium">{caseItem.title}</p>
+                <p className="break-words text-xs text-muted-foreground">
                   {caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} · оновлено {formatDateTime(caseItem.updated_at)}
                 </p>
               </div>
-              <Button type="submit" variant="outline">Архівувати</Button>
+              <Button className="w-full shrink-0 sm:w-auto" type="submit" variant="outline">Архівувати</Button>
             </form>
           ))}
         </div>
@@ -211,28 +211,28 @@ function DirectoryPanel({
         {title}
         <InfoHint label={hint} />
       </h2>
-      <form action={action} className="mt-4 grid gap-3 rounded-md border bg-background p-3 md:grid-cols-[1fr_100px_auto]">
-        <input className="h-10 rounded-md border bg-card px-3" name="name" placeholder="Нова назва" />
-        <input className="h-10 rounded-md border bg-card px-3" name="sortOrder" placeholder="Порядок" type="number" />
-        <label className="flex items-center gap-2 text-sm font-medium">
+      <form action={action} className="mt-4 grid min-w-0 gap-3 rounded-md border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_100px] xl:grid-cols-[minmax(0,1fr)_100px_auto]">
+        <input className="h-10 min-w-0 rounded-md border bg-card px-3" name="name" placeholder="Нова назва" />
+        <input className="h-10 min-w-0 rounded-md border bg-card px-3" name="sortOrder" placeholder="Порядок" type="number" />
+        <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
           <input defaultChecked name="isActive" type="checkbox" />
           Активний
         </label>
-        <div className="md:col-span-3">
-          <Button type="submit">Додати</Button>
+        <div className="sm:col-span-2 xl:col-span-3">
+          <Button className="w-full sm:w-auto" type="submit">Додати</Button>
         </div>
       </form>
       <div className="mt-4 space-y-2">
         {items.map((item) => (
-          <form action={action} className="grid gap-2 rounded-md border bg-background p-3 md:grid-cols-[1fr_100px_auto_auto]" key={item.id}>
+          <form action={action} className="grid min-w-0 gap-2 rounded-md border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_100px] xl:grid-cols-[minmax(0,1fr)_100px_auto_auto]" key={item.id}>
             <input name="id" type="hidden" value={item.id} />
-            <input className="h-10 rounded-md border bg-card px-3" defaultValue={item.name} name="name" />
-            <input className="h-10 rounded-md border bg-card px-3" defaultValue={item.sort_order} name="sortOrder" type="number" />
-            <label className="flex items-center gap-2 text-sm font-medium">
+            <input className="h-10 min-w-0 rounded-md border bg-card px-3" defaultValue={item.name} name="name" />
+            <input className="h-10 min-w-0 rounded-md border bg-card px-3" defaultValue={item.sort_order} name="sortOrder" type="number" />
+            <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
               <input defaultChecked={item.is_active} name="isActive" type="checkbox" />
               Активний
             </label>
-            <Button type="submit" variant="secondary">Зберегти</Button>
+            <Button className="w-full sm:w-auto" type="submit" variant="secondary">Зберегти</Button>
           </form>
         ))}
       </div>

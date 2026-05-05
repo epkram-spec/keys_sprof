@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, getMetadataText } from "@/lib/cases/format";
 import type { CaseFileRow } from "@/lib/cases/files";
-import type { ScoringResult } from "@/lib/cases/scoring";
+import { scoringCriteria, type ScoringResult } from "@/lib/cases/scoring";
 import { projectStageOptions, type CaseActivity, type CaseComment, type CaseRow, type DirectoryOption } from "@/lib/cases/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -31,6 +31,7 @@ const successMessages: Record<string, string> = {
 
 const errorMessages: Record<string, string> = {
   required: "Заповніть обовʼязкові поля.",
+  permission_comment: "Якщо зйомка заборонена, напишіть короткий коментар чому.",
   update: "Не вдалося зберегти зміни.",
   comment_required: "Напишіть текст коментаря.",
   comment: "Не вдалося додати коментар.",
@@ -170,8 +171,8 @@ function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
       <div className="grid gap-3 md:grid-cols-2">
         <TextSummary label="Задача" value={getText(scoringInput, "hasClientTask")} />
         <TextSummary label="Рішення SPROF" value={getText(scoringInput, "hasSprofSolution")} />
-        <TextSummary label="Ефект" value={getText(scoringInput, "hasMetricOrEffect")} />
-        <TextSummary label="Родзинка" value={getText(scoringInput, "hasVisualHook")} />
+        <TextSummary label="Очікуваний результат" value={getText(scoringInput, "hasMetricOrEffect")} />
+        <TextSummary label="Особливість проєкту" value={getText(scoringInput, "hasVisualHook")} />
       </div>
 
       <div>
@@ -278,29 +279,31 @@ function ScoringExplanation({ caseItem }: { caseItem: CaseRow }) {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-5">
-      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+    <details className="group rounded-lg border bg-card p-5">
+      <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Пояснення балів</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {scoring.score} балів · {scoring.priority}
           </p>
         </div>
-      </div>
-      <div className="mt-4 grid gap-2">
+        <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
+        <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
+      </summary>
+      <div className="mt-4 grid gap-2 border-t pt-4">
         {scoring.details.map((item) => (
           <div
-            className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm"
+            className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2 text-sm"
             key={item.label}
           >
-            <span className={item.matched ? "font-medium" : "text-muted-foreground"}>{item.label}</span>
+            <span className={item.matched ? "font-medium" : "text-muted-foreground"}>{getScoringLabel(item.label)}</span>
             <span className={item.matched ? "font-semibold text-primary" : "text-muted-foreground"}>
               {item.matched ? `+${item.points}` : "0"}
             </span>
           </div>
         ))}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -409,6 +412,11 @@ const activityLabels: Record<string, string> = {
 function getScoring(caseItem: CaseRow) {
   const scoring = caseItem.metadata?.scoring;
   return scoring && typeof scoring === "object" ? (scoring as ScoringResult) : null;
+}
+
+function getScoringLabel(label: string) {
+  const criterion = scoringCriteria.find((item) => item.key === label || item.fullLabel === label || item.shortLabel === label);
+  return criterion?.fullLabel ?? label;
 }
 
 function getPriority(caseItem: CaseRow) {
