@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { caseFileBucket, isAllowedCaseFile } from "@/lib/cases/files";
-import { booleanFromFormValue, calculateCaseScore, scoringCriteria } from "@/lib/cases/scoring";
+import { booleanFromFormValue, calculateCaseScore } from "@/lib/cases/scoring";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,20 +68,68 @@ async function writeActivity(caseId: string, actorUserId: string, action: string
   });
 }
 
-function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, unknown> = {}) {
+function getMetadataObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function getStageHistory(value: unknown) {
+  return Array.isArray(value) ? value.filter((item) => item && typeof item === "object") : [];
+}
+
+function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, unknown> = {}, actorUserId = "") {
+  const previousMonitoring = getMetadataObject(currentMetadata.marketingMonitoring);
+  const previousStage = typeof previousMonitoring.projectStage === "string" ? previousMonitoring.projectStage : null;
+  const previousPlannedDate =
+    typeof previousMonitoring.stagePlannedDate === "string"
+      ? previousMonitoring.stagePlannedDate
+      : typeof previousMonitoring.keyDate === "string"
+        ? previousMonitoring.keyDate
+        : null;
+  const projectStage = readOptionalText(formData, "projectStage");
+  const stagePlannedDate = readOptionalText(formData, "stagePlannedDate");
+  const stageChanged =
+    projectStage !== previousStage || stagePlannedDate !== previousPlannedDate || !previousMonitoring.stageChangedAt;
+  const stageChangedAt = stageChanged
+    ? new Date().toISOString()
+    : typeof previousMonitoring.stageChangedAt === "string"
+      ? previousMonitoring.stageChangedAt
+      : new Date().toISOString();
+  const stageHistory = stageChanged
+    ? [
+        ...getStageHistory(previousMonitoring.stageHistory),
+        {
+          stage: projectStage,
+          plannedDate: stagePlannedDate,
+          changedAt: stageChangedAt,
+          changedBy: actorUserId,
+        },
+      ]
+    : getStageHistory(previousMonitoring.stageHistory);
   const marketingMonitoring = {
     paymentStatus: readOptionalText(formData, "paymentStatus"),
     equipmentApproved: booleanFromFormValue(formData.get("equipmentApproved")),
-    keyDate: readOptionalText(formData, "keyDate"),
-    projectStage: readOptionalText(formData, "projectStage"),
+    keyDate: stagePlannedDate,
+    stagePlannedDate,
+    projectStage,
+    stageChangedAt,
+    stageHistory,
     isHighProfile: booleanFromFormValue(formData.get("isHighProfile")),
     bigCheck: booleanFromFormValue(formData.get("bigCheck")),
   };
   const scoringInput = {
-    ...Object.fromEntries(
-      scoringCriteria.map((criterion) => [criterion.key, booleanFromFormValue(formData.get(criterion.key))]),
-    ),
-    hasFeasibleDates: Boolean(marketingMonitoring.keyDate),
+    hasPermissionChance: booleanFromFormValue(formData.get("hasPermissionChance")),
+    hasVisualShowcase: booleanFromFormValue(formData.get("hasVisualShowcase")),
+    hasClientTask: readOptionalText(formData, "hasClientTask"),
+    hasSprofSolution: readOptionalText(formData, "hasSprofSolution"),
+    hasMetricOrEffect: readOptionalText(formData, "hasMetricOrEffect"),
+    hasVisualHook: readOptionalText(formData, "hasVisualHook"),
+    hasHighProfileObject: marketingMonitoring.isHighProfile,
+    hasBigCheck: marketingMonitoring.bigCheck,
+    hasBeforeOpportunity: booleanFromFormValue(formData.get("hasBeforeOpportunity")),
+    hasDuringOpportunity: booleanFromFormValue(formData.get("hasDuringOpportunity")),
+    hasAfterOpportunity: booleanFromFormValue(formData.get("hasAfterOpportunity")),
+    hasFeasibleDates: Boolean(marketingMonitoring.stagePlannedDate),
+    launchDate: marketingMonitoring.stagePlannedDate,
   };
   const scoring = calculateCaseScore(scoringInput);
 
@@ -127,7 +175,7 @@ export async function createCaseAction(formData: FormData) {
   }
 
   const { supabase, user } = await getCurrentUser();
-  const { metadata, scoring } = buildCaseMetadata(formData);
+  const { metadata, scoring } = buildCaseMetadata(formData, {}, user.id);
   const cityId = await resolveCityId(supabase, formData);
 
   const { data, error } = await supabase
@@ -181,7 +229,7 @@ export async function updateCaseAction(formData: FormData) {
 
   const previousPriority =
     typeof currentMetadata.priority === "string" ? currentMetadata.priority : undefined;
-  const { metadata, scoring } = buildCaseMetadata(formData, currentMetadata);
+  const { metadata, scoring } = buildCaseMetadata(formData, currentMetadata, user.id);
   const cityId = await resolveCityId(supabase, formData);
 
   const { error } = await supabase

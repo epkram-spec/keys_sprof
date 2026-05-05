@@ -295,7 +295,7 @@ async function importRow(row: PreviewRow, actorUserId: string) {
     hasShowcase: false,
     isRecognizableClient: false,
     isComplexProject: false,
-    hasMetricOrEffect: false,
+    hasMetricOrEffect: "",
     hasCommentPerson: false,
     hasPhotoOrVideo: false,
   };

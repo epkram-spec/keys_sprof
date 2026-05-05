@@ -39,7 +39,31 @@ export type DirectoryOption = {
   name: string;
 };
 
+export type StageHistoryItem = {
+  stage: string;
+  plannedDate: string | null;
+  changedAt: string;
+  changedBy: string;
+};
+
 export const projectStatusOptions = ["Новий", "В роботі", "Очікує уточнення", "Готовий до передачі"];
+
+export const projectStageOptions = [
+  "Оплата за обладнання",
+  "Комплектація погоджена",
+  "Проєктування / підбір рішення",
+  "Доставка запланована",
+  "Доставка виконана",
+  "Монтаж запланований",
+  "Монтаж у процесі",
+  "Монтаж виконано",
+  "Запуск / навчання заплановано",
+  "Запуск / навчання виконано",
+  "Робоче навантаження / експлуатація",
+  "Готово для маркетингу",
+  "Опубліковано",
+  "Архів",
+];
 
 export const marketingStatusOptions = [
   "Новий",

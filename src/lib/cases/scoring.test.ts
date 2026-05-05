@@ -7,13 +7,14 @@ describe("calculateCaseScore", () => {
     const result = calculateCaseScore({
       hasPermissionChance: true,
       hasVisualShowcase: true,
-      hasClientTask: true,
-      hasSprofSolution: true,
-      hasMetricOrEffect: true,
-      isMarketRelevant: true,
+      hasClientTask: "Клієнт запускає нову кухню і хоче стабільний темп видачі.",
+      hasSprofSolution: "SPROF підібрав обладнання, інтегрував лінію і провів запуск.",
+      hasMetricOrEffect: "Очікуване прискорення видачі на 25%.",
+      hasHighProfileObject: true,
+      hasFeasibleDates: true,
     });
 
-    expect(result.score).toBe(10);
+    expect(result.score).toBe(13);
     expect(result.priority).toBe("Гарячий кейс");
   });
 
@@ -21,22 +22,22 @@ describe("calculateCaseScore", () => {
     const result = calculateCaseScore({
       hasPermissionChance: true,
       hasVisualShowcase: true,
-      hasClientTask: true,
-      hasSprofSolution: true,
+      hasClientTask: "Потрібно швидко запустити кавову зону.",
+      hasSprofSolution: "SPROF підібрав комплект обладнання.",
     });
 
     expect(result.score).toBe(7);
     expect(result.priority).toBe("Потенційний кейс");
   });
 
-  it("рахує спостереження у діапазоні 0-5", () => {
+  it("не дає бали за порожні текстові поля", () => {
     const result = calculateCaseScore({
-      hasClientTask: true,
-      isMarketRelevant: true,
-      hasVisualHook: true,
+      hasClientTask: "   ",
+      hasMetricOrEffect: "",
+      hasVisualHook: "Нестандартний монтаж у вузькому просторі.",
     });
 
-    expect(result.score).toBe(3);
+    expect(result.score).toBe(1);
     expect(result.priority).toBe("Спостерігаємо");
   });
 
@@ -52,7 +53,7 @@ describe("calculateCaseScore", () => {
 
     const result = calculateCaseScore(input);
 
-    expect(result.score).toBe(10);
+    expect(result.score).toBe(11);
     expect(result.priority).toBe("Гарячий кейс");
   });
 });

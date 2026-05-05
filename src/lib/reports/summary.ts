@@ -59,6 +59,13 @@ export function getPriority(caseItem: CaseRow) {
 
 export function getLaunchDate(caseItem: CaseRow) {
   const monitoring = caseItem.metadata?.marketingMonitoring;
+  if (monitoring && typeof monitoring === "object" && "stagePlannedDate" in monitoring) {
+    const stagePlannedDate = (monitoring as Record<string, unknown>).stagePlannedDate;
+    if (typeof stagePlannedDate === "string" && stagePlannedDate) {
+      return stagePlannedDate;
+    }
+  }
+
   if (monitoring && typeof monitoring === "object" && "keyDate" in monitoring) {
     const keyDate = (monitoring as Record<string, unknown>).keyDate;
     if (typeof keyDate === "string" && keyDate) {

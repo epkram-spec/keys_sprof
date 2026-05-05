@@ -1,4 +1,5 @@
 import { createCaseAction, updateCaseAction } from "@/app/(private)/cases/actions";
+import { StageDateFields } from "@/components/cases/stage-date-fields";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { getMetadataText } from "@/lib/cases/format";
@@ -17,13 +18,8 @@ type CaseFormProps = {
   cities: DirectoryOption[];
 };
 
-const projectStageOptions = [
-  "Комплектація",
-  "Доставка",
-  "Монтаж",
-  "Запуск / навчання",
-  "Оплата за обладнання",
-];
+const textScoringFields = ["hasClientTask", "hasSprofSolution", "hasMetricOrEffect", "hasVisualHook"] as const;
+const hiddenScoringFields = ["hasFeasibleDates"];
 
 export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
   const action = mode === "create" ? createCaseAction : updateCaseAction;
@@ -38,6 +34,8 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
       : {};
   const score = caseItem?.score ?? 0;
   const priority = typeof metadata.priority === "string" ? metadata.priority : "Спостерігаємо";
+  const stage = getMonitoringText(monitoring, "projectStage");
+  const stagePlannedDate = getMonitoringText(monitoring, "stagePlannedDate") || getMonitoringText(monitoring, "keyDate");
 
   return (
     <form action={action} className="space-y-5">
@@ -76,7 +74,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
               className="mt-2 min-h-24 w-full rounded-md border bg-background px-3 py-2"
               defaultValue={caseItem?.summary ?? ""}
               name="summary"
-              placeholder="1-2 речення: що за клієнт, що зробили, чому це може бути кейсом"
+              placeholder="1-2 речення: що за клієнт, що робимо, чому це може бути кейсом"
               required
             />
           </label>
@@ -122,9 +120,9 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
 
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
         <div className="mb-4 border-b pb-4">
-          <h2 className="text-base font-semibold">Коли обовʼязково повідомляти маркетинг</h2>
+          <h2 className="text-base font-semibold">Стадія і маркетинговий момент</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ці поля потрібні для постійного моніторингу потенційних кейсів і нагадувань менеджеру.
+            Оплата за обладнання стоїть першою. Але кейс може бути цікавим ще до монтажу, якщо можна зняти “до”, “під час” і “після”.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -135,7 +133,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
             </span>
             <select
               className="mt-2 h-10 w-full rounded-md border bg-background px-3"
-              defaultValue={typeof monitoring.paymentStatus === "string" ? monitoring.paymentStatus : ""}
+              defaultValue={getMonitoringText(monitoring, "paymentStatus")}
               name="paymentStatus"
             >
               <option value="">Не вказано</option>
@@ -144,32 +142,8 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
               <option value="Немає">Немає</option>
             </select>
           </label>
-          <SelectField
-            hint="Поточна стадія: комплектація, доставка, монтаж, запуск/навчання або оплата."
-            label="Стадія проєкту"
-            name="projectStage"
-            value={typeof monitoring.projectStage === "string" ? monitoring.projectStage : ""}
-          >
-            <option value="">Не вказано</option>
-            {projectStageOptions.map((stage) => (
-              <option key={stage} value={stage}>
-                {stage}
-              </option>
-            ))}
-          </SelectField>
-          <label className="text-sm font-medium">
-            <span className="flex items-center gap-2">
-              Дата доставки / монтажу / запуску
-              <InfoHint label="Дата вводиться руками. Вона потрібна, щоб маркетинг встиг запланувати зйомку." />
-            </span>
-            <input
-              className="mt-2 h-10 w-full rounded-md border bg-background px-3"
-              defaultValue={typeof monitoring.keyDate === "string" ? monitoring.keyDate : ""}
-              name="keyDate"
-              type="date"
-            />
-          </label>
-          <div className="grid gap-3">
+          <StageDateFields defaultDate={stagePlannedDate} defaultStage={stage} />
+          <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
             <CheckRow
               defaultChecked={Boolean(monitoring.equipmentApproved)}
               hint="Комплектація погоджена клієнтом або внутрішньо затверджена."
@@ -179,7 +153,7 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
             <CheckRow
               defaultChecked={Boolean(monitoring.isHighProfile)}
               hint="Відомий заклад, мережа, держобʼєкт або кейс, який може бути гучним для ринку."
-              label="Гучний проєкт"
+              label="Гучний обʼєкт"
               name="isHighProfile"
             />
             <CheckRow
@@ -196,19 +170,31 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         <div className="mb-4 border-b pb-4">
           <h2 className="text-base font-semibold">Чи це кандидат на зйомку?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Менеджер відповідає “так” або “ні”. Короткі назви економлять місце, а значок поруч пояснює пункт.
+            Текстові поля дають бали тільки тоді, коли менеджер справді описав фактуру. Короткі пункти мають пояснення поруч.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          {scoringCriteria.filter((criterion) => criterion.key !== "hasFeasibleDates").map((criterion) => (
-            <ScoreToggle
-              defaultChecked={Boolean(scoringInput[criterion.key])}
-              description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
-              key={criterion.key}
-              label={criterion.shortLabel}
-              name={criterion.key}
-            />
-          ))}
+          {scoringCriteria
+            .filter((criterion) => !hiddenScoringFields.includes(criterion.key))
+            .map((criterion) =>
+              isTextScoringField(criterion.key) ? (
+                <ScoreTextField
+                  defaultValue={getScoringText(scoringInput, criterion.key)}
+                  description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
+                  key={criterion.key}
+                  label={criterion.shortLabel}
+                  name={criterion.key}
+                />
+              ) : (
+                <ScoreToggle
+                  defaultChecked={Boolean(scoringInput[criterion.key])}
+                  description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
+                  key={criterion.key}
+                  label={criterion.shortLabel}
+                  name={criterion.key}
+                />
+              ),
+            )}
         </div>
       </section>
 
@@ -281,6 +267,33 @@ function ScoreToggle({
   );
 }
 
+function ScoreTextField({
+  defaultValue,
+  description,
+  label,
+  name,
+}: {
+  defaultValue: string;
+  description: string;
+  label: string;
+  name: string;
+}) {
+  return (
+    <label className="rounded-md border bg-background p-3 text-sm font-medium">
+      <span className="flex items-center gap-2">
+        {label}
+        <InfoHint label={description} />
+      </span>
+      <textarea
+        className="mt-3 min-h-24 w-full rounded-md border bg-muted/20 px-3 py-2 text-sm font-normal"
+        defaultValue={defaultValue}
+        name={name}
+        placeholder="Коротко опишіть факт, який зможе використати маркетинг"
+      />
+    </label>
+  );
+}
+
 function CheckRow({
   defaultChecked,
   hint,
@@ -338,4 +351,18 @@ function SelectField({
       </select>
     </label>
   );
+}
+
+function getMonitoringText(monitoring: Record<string, unknown>, key: string) {
+  const value = monitoring[key];
+  return typeof value === "string" ? value : "";
+}
+
+function getScoringText(scoringInput: Record<string, unknown>, key: string) {
+  const value = scoringInput[key];
+  return typeof value === "string" ? value : "";
+}
+
+function isTextScoringField(key: string): key is (typeof textScoringFields)[number] {
+  return textScoringFields.includes(key as (typeof textScoringFields)[number]);
 }

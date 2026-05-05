@@ -161,7 +161,7 @@ function hasMarketingSignal(caseItem: CaseRow) {
     monitoring.paymentStatus === "Передоплата" ||
     monitoring.paymentStatus === "Оплата" ||
     monitoring.equipmentApproved === true ||
-    typeof monitoring.keyDate === "string" && monitoring.keyDate.length > 0 ||
+    hasMonitoringDate(monitoring) ||
     monitoring.isHighProfile === true ||
     monitoring.bigCheck === true
   );
@@ -177,6 +177,13 @@ function needsMarketingMonitoring(caseItem: CaseRow) {
     monitoring.paymentStatus === "Передоплата" ||
     monitoring.paymentStatus === "Оплата" ||
     monitoring.equipmentApproved === true;
-  const hasKeyDate = typeof monitoring.keyDate === "string" && monitoring.keyDate.length > 0;
+  const hasKeyDate = hasMonitoringDate(monitoring);
   return !hasPaymentOrPackage || !hasKeyDate;
+}
+
+function hasMonitoringDate(monitoring: Record<string, unknown>) {
+  return (
+    (typeof monitoring.stagePlannedDate === "string" && monitoring.stagePlannedDate.length > 0) ||
+    (typeof monitoring.keyDate === "string" && monitoring.keyDate.length > 0)
+  );
 }

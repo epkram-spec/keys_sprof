@@ -5,11 +5,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { formatDateTime } from "@/lib/cases/format";
-import { normalizeLegacyScoringInput } from "@/lib/cases/scoring";
 import {
   type CaseRow,
   type DirectoryOption,
   marketingStatusOptions,
+  projectStageOptions,
   projectStatusOptions,
 } from "@/lib/cases/types";
 import { getPermission, getPriority } from "@/lib/reports/summary";
@@ -22,6 +22,7 @@ type CasesPageProps = {
     marketing_status?: string;
     segment_id?: string;
     city_id?: string;
+    stage?: string;
   }>;
 };
 
@@ -69,7 +70,9 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
     supabase.from("case_segments").select("id,name").order("sort_order"),
     supabase.from("cities").select("id,name").order("sort_order"),
   ]);
-  const typedCases = (cases ?? []) as unknown as CaseRow[];
+  const typedCases = ((cases ?? []) as unknown as CaseRow[]).filter((caseItem) =>
+    params.stage ? getProjectStage(caseItem) === params.stage : true,
+  );
 
   return (
     <>
@@ -83,7 +86,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         </Button>
       </div>
 
-      <form className="mb-5 grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1.4fr_repeat(4,1fr)_auto]">
+      <form className="mb-5 grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-3 xl:grid-cols-[1.4fr_repeat(5,1fr)_auto]">
         <label className="text-sm font-medium">
           Пошук
           <div className="relative mt-2">
@@ -98,6 +101,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
         </label>
         <FilterSelect label="Статус кейсу" name="project_status" options={projectStatusOptions} value={params.project_status} />
         <FilterSelect label="Маркетинг" name="marketing_status" options={marketingStatusOptions} value={params.marketing_status} />
+        <FilterSelect label="Стадія" name="stage" options={projectStageOptions} value={params.stage} />
         <DirectorySelect label="Сегмент" name="segment_id" options={(segments ?? []) as DirectoryOption[]} value={params.segment_id} />
         <DirectorySelect label="Місто" name="city_id" options={(cities ?? []) as DirectoryOption[]} value={params.city_id} />
         <div className="flex items-end">
@@ -114,7 +118,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       ) : null}
 
       <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="hidden min-w-0 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.8fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(116px,0.8fr)_minmax(128px,0.9fr)_minmax(124px,0.8fr)] lg:gap-3">
+        <div className="hidden min-w-0 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.7fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(118px,0.8fr)_minmax(132px,0.9fr)_minmax(132px,0.9fr)] lg:gap-3">
           <span className="flex items-center gap-1">Кейс <InfoHint label="Назва кейсу, короткий опис і сегмент." /></span>
           <span className="flex items-center gap-1">Місто <InfoHint label="Місто, де відбувається проєкт або монтаж." /></span>
           <span className="flex items-center gap-1">Менеджер <InfoHint label="Відповідальний менеджер за кейс." /></span>
@@ -123,7 +127,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
             <InfoHint label="Автоматичний скоринг за чекпунктами кандидата на зйомку." />
           </span>
           <span className="flex items-center gap-1">Статус <InfoHint label="Поточний статус кейсу і статус маркетингу." /></span>
-          <span className="flex items-center gap-1">Готовність <InfoHint label="Чи є дозвіл та ключова дата для виїзду або зйомки." /></span>
+          <span className="flex items-center gap-1">Стадія <InfoHint label="Поточний етап проєкту. Якщо тиждень немає змін, менеджер отримає нагадування." /></span>
         </div>
 
         {typedCases.length ? (
@@ -142,12 +146,11 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
 function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
   const priority = getPriority(caseItem);
   const permission = getPermission(caseItem);
-  const scoringInput = getScoringInput(caseItem);
-  const datesReady = scoringInput.hasFeasibleDates === true;
+  const stage = getProjectStage(caseItem);
 
   return (
     <Link
-      className="grid min-w-0 gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(220px,1.8fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(116px,0.8fr)_minmax(128px,0.9fr)_minmax(124px,0.8fr)] lg:items-center lg:gap-3"
+      className="grid min-w-0 gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(220px,1.7fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(118px,0.8fr)_minmax(132px,0.9fr)_minmax(132px,0.9fr)] lg:items-center lg:gap-3"
       href={`/cases/${caseItem.id}`}
     >
       <div className="min-w-0">
@@ -166,7 +169,7 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
       </div>
       <div className="flex flex-wrap gap-2">
         <StatusPill>{permission || "Без дозволу"}</StatusPill>
-        <StatusPill>{datesReady ? "Дати є" : "Без дат"}</StatusPill>
+        <StagePill stage={stage} />
       </div>
     </Link>
   );
@@ -241,8 +244,20 @@ function StatusPill({ children }: { children: React.ReactNode }) {
   );
 }
 
-function getScoringInput(caseItem: CaseRow) {
-  return caseItem.metadata?.scoringInput && typeof caseItem.metadata.scoringInput === "object"
-    ? normalizeLegacyScoringInput(caseItem.metadata.scoringInput as Record<string, unknown>)
-    : {};
+function StagePill({ stage }: { stage: string }) {
+  return (
+    <span className="h-fit w-fit rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+      {stage || "Без стадії"}
+    </span>
+  );
+}
+
+function getProjectStage(caseItem: CaseRow) {
+  const monitoring = caseItem.metadata?.marketingMonitoring;
+  if (monitoring && typeof monitoring === "object" && "projectStage" in monitoring) {
+    const stage = (monitoring as Record<string, unknown>).projectStage;
+    return typeof stage === "string" ? stage : "";
+  }
+
+  return "";
 }

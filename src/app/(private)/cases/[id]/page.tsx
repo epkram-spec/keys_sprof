@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime, getMetadataText } from "@/lib/cases/format";
 import type { CaseFileRow } from "@/lib/cases/files";
 import type { ScoringResult } from "@/lib/cases/scoring";
-import type { CaseActivity, CaseComment, CaseRow, DirectoryOption } from "@/lib/cases/types";
+import { projectStageOptions, type CaseActivity, type CaseComment, type CaseRow, type DirectoryOption } from "@/lib/cases/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type CaseDetailsPageProps = {
@@ -141,19 +141,40 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
 
 function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
   const priority = getPriority(caseItem);
+  const monitoring = getMonitoring(caseItem);
+  const scoringInput = getScoringInput(caseItem);
+  const stage = getText(monitoring, "projectStage");
+  const stagePlannedDate = getText(monitoring, "stagePlannedDate") || getText(monitoring, "keyDate");
 
   return (
-    <section className="grid gap-4 rounded-lg border bg-card p-5 md:grid-cols-4">
-      <SummaryItem label="Статус кейсу" value={caseItem.project_status ?? "Новий"} />
-      <SummaryItem label="Статус маркетингу" value={caseItem.marketing_status ?? "Новий"} />
-      <SummaryItem label="Сегмент" value={caseItem.case_segments?.name ?? "Не вибрано"} />
-      <SummaryItem label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
-      <SummaryItem label="Власник" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
-      <SummaryItem label="Оцінка" value={caseItem.score === null ? "Не вказано" : String(caseItem.score)} />
-      <SummaryItem label="Пріоритет" value={priority} />
-      <SummaryItem label="Створено" value={formatDateTime(caseItem.created_at)} />
-      <SummaryItem label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
-      <div className="md:col-span-4">
+    <section className="space-y-5 rounded-lg border bg-card p-5">
+      <div className="grid gap-4 md:grid-cols-4">
+        <SummaryItem label="Статус кейсу" value={caseItem.project_status ?? "Новий"} />
+        <SummaryItem label="Статус маркетингу" value={caseItem.marketing_status ?? "Новий"} />
+        <SummaryItem label="Сегмент" value={caseItem.case_segments?.name ?? "Не вибрано"} />
+        <SummaryItem label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
+        <SummaryItem label="Власник" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
+        <SummaryItem label="Оцінка" value={caseItem.score === null ? "Не вказано" : String(caseItem.score)} />
+        <SummaryItem label="Пріоритет" value={priority} />
+        <SummaryItem label="Планова дата" value={stagePlannedDate || "Не вказано"} />
+      </div>
+
+      <div className="rounded-md border bg-background p-4">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-semibold">Стадія проєкту</h2>
+          <span className="text-sm text-muted-foreground">{stage || "Стадію не вказано"}</span>
+        </div>
+        <StageStepper currentStage={stage} />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <TextSummary label="Задача" value={getText(scoringInput, "hasClientTask")} />
+        <TextSummary label="Рішення SPROF" value={getText(scoringInput, "hasSprofSolution")} />
+        <TextSummary label="Ефект" value={getText(scoringInput, "hasMetricOrEffect")} />
+        <TextSummary label="Родзинка" value={getText(scoringInput, "hasVisualHook")} />
+      </div>
+
+      <div>
         <p className="text-xs font-medium uppercase text-muted-foreground">Контекст</p>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Контакт: {getMetadataText(caseItem.metadata, "contactName") || "не вказано"} · Джерело:{" "}
@@ -161,6 +182,42 @@ function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
         </p>
       </div>
     </section>
+  );
+}
+
+function StageStepper({ currentStage }: { currentStage: string }) {
+  const currentIndex = projectStageOptions.indexOf(currentStage);
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {projectStageOptions.map((stage, index) => {
+        const isCurrent = stage === currentStage;
+        const isDone = currentIndex >= 0 && index < currentIndex;
+        return (
+          <div
+            className={
+              isCurrent
+                ? "rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary"
+                : isDone
+                  ? "rounded-md border bg-muted/50 px-3 py-2 text-sm text-foreground"
+                  : "rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground"
+            }
+            key={stage}
+          >
+            {stage}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TextSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+      <p className="mt-2 text-sm leading-6">{value || "Не заповнено"}</p>
+    </div>
   );
 }
 
@@ -357,4 +414,19 @@ function getScoring(caseItem: CaseRow) {
 function getPriority(caseItem: CaseRow) {
   const priority = caseItem.metadata?.priority;
   return typeof priority === "string" ? priority : "Не визначено";
+}
+
+function getMonitoring(caseItem: CaseRow) {
+  const monitoring = caseItem.metadata?.marketingMonitoring;
+  return monitoring && typeof monitoring === "object" ? (monitoring as Record<string, unknown>) : {};
+}
+
+function getScoringInput(caseItem: CaseRow) {
+  const scoringInput = caseItem.metadata?.scoringInput;
+  return scoringInput && typeof scoringInput === "object" ? (scoringInput as Record<string, unknown>) : {};
+}
+
+function getText(source: Record<string, unknown>, key: string) {
+  const value = source[key];
+  return typeof value === "string" ? value : "";
 }
