@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/env";
+import { getRequiredSecret } from "@/lib/security/secrets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type TelegramUpdate = {
@@ -18,12 +19,26 @@ type TelegramUpdate = {
 
 export async function POST(request: Request) {
   const secret = request.headers.get("x-telegram-bot-api-secret-token");
+  let webhookSecret: string;
 
-  if (env.TELEGRAM_WEBHOOK_SECRET && secret !== env.TELEGRAM_WEBHOOK_SECRET) {
+  try {
+    webhookSecret = getRequiredSecret("TELEGRAM_WEBHOOK_SECRET", env.TELEGRAM_WEBHOOK_SECRET);
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 503 });
+  }
+
+  if (secret !== webhookSecret) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const update = (await request.json()) as TelegramUpdate;
+  let update: TelegramUpdate;
+
+  try {
+    update = (await request.json()) as TelegramUpdate;
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
   const text = update.message?.text ?? "";
   const token = text.startsWith("/start ") ? text.replace("/start ", "").trim() : "";
 
@@ -63,7 +78,7 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: update.message.chat.id,
-        text: "Telegram привʼязано до кабінету Радар кейсів SPROF.",
+        text: "Telegram прив'язано до кабінету Радар кейсів SPROF.",
       }),
     });
   }
