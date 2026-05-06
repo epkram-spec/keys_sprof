@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { caseFileBucket, isAllowedCaseFile } from "@/lib/cases/files";
 import { booleanFromFormValue, calculateCaseScore } from "@/lib/cases/scoring";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -35,14 +34,7 @@ async function resolveCityId(supabase: Awaited<ReturnType<typeof createSupabaseS
     return existingCity.id;
   }
 
-  const adminSupabase = createSupabaseAdminClient();
-  const { data: createdCity } = await adminSupabase
-    .from("cities")
-    .insert({ name: cityName, sort_order: 998, is_active: true })
-    .select("id")
-    .single<{ id: string }>();
-
-  return createdCity?.id ?? selectedCityId;
+  return selectedCityId;
 }
 
 async function getCurrentUser() {
@@ -198,6 +190,10 @@ export async function createCaseAction(formData: FormData) {
   const { metadata, scoring } = buildCaseMetadata(formData, {}, user.id);
   const cityId = await resolveCityId(supabase, formData);
 
+  if (!cityId) {
+    redirect("/cases/new?error=city_not_found");
+  }
+
   const { data, error } = await supabase
     .from("cases")
     .insert({
@@ -255,6 +251,10 @@ export async function updateCaseAction(formData: FormData) {
     typeof currentMetadata.priority === "string" ? currentMetadata.priority : undefined;
   const { metadata, scoring } = buildCaseMetadata(formData, currentMetadata, user.id);
   const cityId = await resolveCityId(supabase, formData);
+
+  if (!cityId) {
+    redirect(`/cases/${caseId}?error=city_not_found`);
+  }
 
   const { error } = await supabase
     .from("cases")

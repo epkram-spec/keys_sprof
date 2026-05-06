@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { env } from "@/env";
+import { getBearerToken, getRequiredSecret } from "@/lib/security/secrets";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type ReminderCase = {
@@ -14,11 +15,16 @@ type ReminderCase = {
 
 const weekMs = 7 * 24 * 60 * 60 * 1000;
 
-export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  const token = authHeader?.replace("Bearer ", "") || request.headers.get("x-cron-secret");
+export async function POST(request: Request) {
+  let cronSecret: string;
 
-  if (env.CRON_SECRET && token !== env.CRON_SECRET) {
+  try {
+    cronSecret = getRequiredSecret("CRON_SECRET", env.CRON_SECRET);
+  } catch {
+    return NextResponse.json({ error: "Службовий ключ не налаштований." }, { status: 503 });
+  }
+
+  if (getBearerToken(request) !== cronSecret) {
     return NextResponse.json({ error: "Немає доступу." }, { status: 401 });
   }
 
@@ -85,7 +91,14 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ checked: data?.length ?? 0, reminders: created });
+  return NextResponse.json(
+    { checked: data?.length ?? 0, reminders: created },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
 
 function shouldRemind(caseItem: ReminderCase, now: Date) {

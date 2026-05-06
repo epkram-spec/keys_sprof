@@ -1,5 +1,6 @@
-import type { CaseRow } from "@/lib/cases/types";
-import { getLaunchDate, getPermission, getPriority } from "@/lib/reports/summary";
+import type { CaseRow } from "../cases/types";
+
+import { getLaunchDate, getPermission, getPriority } from "./summary";
 
 export function buildCasesCsv(cases: CaseRow[]) {
   const headers = [
@@ -30,6 +31,17 @@ export function buildCasesCsv(cases: CaseRow[]) {
 }
 
 function escapeCsvCell(value: string) {
-  const escaped = value.replaceAll('"', '""');
+  const normalized = neutralizeSpreadsheetFormula(value);
+  const escaped = normalized.replaceAll('"', '""');
   return `"${escaped}"`;
+}
+
+function neutralizeSpreadsheetFormula(value: string) {
+  const trimmed = value.trimStart();
+
+  if (!trimmed) {
+    return value;
+  }
+
+  return /^[=+\-@\t\r\n]/.test(trimmed) ? `'${value}` : value;
 }
