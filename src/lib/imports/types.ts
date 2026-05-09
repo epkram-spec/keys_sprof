@@ -9,7 +9,7 @@ export type SheetMapping = {
   rowId: string;
 };
 
-export type PreviewRowStatus = "новий" | "можливий дубль" | "помилка" | "вже імпортовано";
+export type PreviewRowStatus = "новий" | "можливий дубль" | "помилка" | "вже імпортовано" | "готовий до оновлення";
 
 export type PreviewRow = {
   index: number;

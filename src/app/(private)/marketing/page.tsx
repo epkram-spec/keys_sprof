@@ -141,22 +141,29 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
         </p>
       ) : null}
 
-      <section className="space-y-4">
-        {groupedCases.map((group) => (
-          <div className="rounded-lg border bg-card shadow-sm" key={group.status}>
-            <div className="flex flex-col gap-2 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
-              <StatusPill className="text-sm" tone={getMarketingTone(group.status)}>{group.status}</StatusPill>
-              <p className="text-sm text-muted-foreground">{group.cases.length} кейсів</p>
+      <section className="animate-fade-in space-y-4">
+        {groupedCases.map((group) => {
+          const accentClass = getGroupAccent(group.status);
+          return (
+            <div className={`rounded-lg border bg-card shadow-sm ${accentClass}`} key={group.status}>
+              <div className="flex flex-col gap-2 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <StatusPill className="text-sm" tone={getMarketingTone(group.status)}>{group.status}</StatusPill>
+                  <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    {group.cases.length}
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-3 p-3 2xl:grid-cols-2">
+                {group.cases.length ? (
+                  group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
+                ) : (
+                  <p className="p-3 text-sm text-muted-foreground">Немає кейсів.</p>
+                )}
+              </div>
             </div>
-            <div className="grid gap-3 p-3 2xl:grid-cols-2">
-              {group.cases.length ? (
-                group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
-              ) : (
-                <p className="p-3 text-sm text-muted-foreground">Немає кейсів.</p>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
     </>
   );
@@ -209,8 +216,41 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
             Змінити статус
           </Button>
         </form>
+        <div className="grid gap-2 xl:col-start-2">
+          <QuickStatusButton caseId={caseItem.id} status="Готово до зйомки">
+            Прийняти в роботу
+          </QuickStatusButton>
+          <QuickStatusButton caseId={caseItem.id} status="Потрібно погодити зйомку" variant="outline">
+            Повернути менеджеру
+          </QuickStatusButton>
+          <QuickStatusButton caseId={caseItem.id} status="Опубліковано" variant="outline">
+            Опублікувати
+          </QuickStatusButton>
+        </div>
       </div>
     </article>
+  );
+}
+
+function QuickStatusButton({
+  caseId,
+  children,
+  status,
+  variant = "secondary",
+}: {
+  caseId: string;
+  children: React.ReactNode;
+  status: string;
+  variant?: ComponentProps<typeof Button>["variant"];
+}) {
+  return (
+    <form action={updateMarketingStatusAction}>
+      <input name="caseId" type="hidden" value={caseId} />
+      <input name="marketingStatus" type="hidden" value={status} />
+      <Button className="w-full justify-start" size="sm" type="submit" variant={variant}>
+        {children}
+      </Button>
+    </form>
   );
 }
 
@@ -303,4 +343,20 @@ function getScoringInput(caseItem: CaseRow) {
   return caseItem.metadata?.scoringInput && typeof caseItem.metadata.scoringInput === "object"
     ? normalizeLegacyScoringInput(caseItem.metadata.scoringInput as Record<string, unknown>)
     : {};
+}
+
+function getGroupAccent(status: string) {
+  if (status === "Перевірити" || status === "Потрібно погодити зйомку") {
+    return "border-l-4 border-l-orange-400";
+  }
+
+  if (status === "Готово до зйомки" || status === "Зйомка запланована") {
+    return "border-l-4 border-l-blue-400";
+  }
+
+  if (status === "Знято" || status === "Монтаж") {
+    return "border-l-4 border-l-violet-400";
+  }
+
+  return "";
 }

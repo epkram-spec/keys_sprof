@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import type { AppRole } from "@/lib/auth/types";
 import { marketingStatusOptions } from "@/lib/cases/types";
+import { createNotification } from "@/lib/notifications/create";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -50,9 +51,9 @@ export async function updateMarketingStatusAction(formData: FormData) {
 
   const { data: currentCase, error: readError } = await supabase
     .from("cases")
-    .select("marketing_status,title")
+    .select("marketing_status,title,owner_user_id")
     .eq("id", caseId)
-    .single<{ marketing_status: string | null; title: string }>();
+    .single<{ marketing_status: string | null; title: string; owner_user_id: string }>();
 
   if (readError || !currentCase) {
     redirect("/marketing?error=case_not_found");
@@ -64,7 +65,10 @@ export async function updateMarketingStatusAction(formData: FormData) {
     redirect("/marketing?success=no_changes");
   }
 
-  const { error } = await supabase.from("cases").update({ marketing_status: nextStatus }).eq("id", caseId);
+  const { error } = await supabase
+    .from("cases")
+    .update({ marketing_status: nextStatus, assigned_marketing_user_id: user.id })
+    .eq("id", caseId);
 
   if (error) {
     redirect("/marketing?error=update_failed");
@@ -79,6 +83,18 @@ export async function updateMarketingStatusAction(formData: FormData) {
       previousStatus,
       nextStatus,
     },
+  });
+
+  // Notify the case owner about the status change
+  await createNotification({
+    type: "marketing.status_changed",
+    title: `Маркетинг змінив статус`,
+    body: `Кейс «${currentCase.title}»: ${previousStatus} → ${nextStatus}.`,
+    caseId,
+    actorUserId: user.id,
+    recipientUserIds: [currentCase.owner_user_id],
+    priority: "normal",
+    metadata: { previousStatus, nextStatus },
   });
 
   revalidatePath("/marketing");

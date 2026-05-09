@@ -117,24 +117,28 @@ export function getStageTone(stage: string): StatusTone {
     return "slate";
   }
 
-  if (stage.includes("Оплата") || stage.includes("Комплектац")) {
+  if (stage.includes("Оплата") || stage.includes("підготовка")) {
     return "yellow";
   }
 
-  if (stage.includes("Доставка") || stage.includes("Зйом")) {
+  if (stage.includes("Проєкт")) {
     return "blue";
   }
 
-  if (stage.includes("Монтаж") || stage.includes("Запуск") || stage.includes("Проєкт")) {
+  if (stage.includes("Доставка")) {
     return "violet";
   }
 
-  if (stage.includes("Готов") || stage.includes("Опублік")) {
+  if (stage.includes("Монтаж")) {
+    return "orange";
+  }
+
+  if (stage.includes("Запуск") || stage.includes("робота")) {
     return "green";
   }
 
-  if (stage.includes("Арх")) {
-    return "slate";
+  if (stage.includes("Маркетинг") || stage.includes("архів")) {
+    return "green";
   }
 
   return "neutral";

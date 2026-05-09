@@ -1,3 +1,34 @@
+export type CaseMetadata = {
+  contactName?: string | null;
+  contactPhone?: string | null;
+  source?: string | null;
+  expectedValue?: string | null;
+  notes?: string | null;
+  googleSheetRowId?: string | null;
+  googleSheetLastImportedAt?: string | null;
+  priority?: string | null;
+  marketingMonitoring?: {
+    paymentStatus?: string | null;
+    equipmentApproved?: boolean;
+    keyDate?: string | null;
+    stagePlannedDate?: string | null;
+    projectStage?: string | null;
+    stageChangedAt?: string | null;
+    stageHistory?: StageHistoryItem[];
+    permissionComment?: string | null;
+    shootingWindows?: {
+      before?: string | null;
+      during?: string | null;
+      after?: string | null;
+    };
+    isHighProfile?: boolean;
+    bigCheck?: boolean;
+  };
+  scoringInput?: Record<string, unknown>;
+  scoring?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
 export type CaseRow = {
   id: string;
   title: string;
@@ -10,7 +41,7 @@ export type CaseRow = {
   project_status: string | null;
   marketing_status: string | null;
   score: number | null;
-  metadata: Record<string, unknown>;
+  metadata: CaseMetadata;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -49,21 +80,31 @@ export type StageHistoryItem = {
 export const projectStatusOptions = ["Новий", "В роботі", "Очікує уточнення", "Готовий до передачі"];
 
 export const projectStageOptions = [
-  "Оплата за обладнання",
-  "Комплектація погоджена",
-  "Проєктування / підбір рішення",
-  "Доставка запланована",
-  "Доставка виконана",
-  "Монтаж запланований",
-  "Монтаж у процесі",
-  "Монтаж виконано",
-  "Запуск / навчання заплановано",
-  "Запуск / навчання виконано",
-  "Робоче навантаження / експлуатація",
-  "Готово для маркетингу",
-  "Опубліковано",
-  "Архів",
+  "Оплата і підготовка",
+  "Проєктування",
+  "Доставка",
+  "Монтаж",
+  "Запуск і робота",
+  "Маркетинг і архів",
 ];
+
+/** Maps old (v1) stage names to new consolidated stages */
+export const legacyStageMapping: Record<string, string> = {
+  "Оплата за обладнання": "Оплата і підготовка",
+  "Комплектація погоджена": "Оплата і підготовка",
+  "Проєктування / підбір рішення": "Проєктування",
+  "Доставка запланована": "Доставка",
+  "Доставка виконана": "Доставка",
+  "Монтаж запланований": "Монтаж",
+  "Монтаж у процесі": "Монтаж",
+  "Монтаж виконано": "Монтаж",
+  "Запуск / навчання заплановано": "Запуск і робота",
+  "Запуск / навчання виконано": "Запуск і робота",
+  "Робоче навантаження / експлуатація": "Запуск і робота",
+  "Готово для маркетингу": "Маркетинг і архів",
+  "Опубліковано": "Маркетинг і архів",
+  "Архів": "Маркетинг і архів",
+};
 
 export const marketingStatusOptions = [
   "Новий",
@@ -73,6 +114,7 @@ export const marketingStatusOptions = [
   "Зйомка запланована",
   "Знято",
   "Монтаж",
+  "Опубліковано",
   "Відхилено",
   "Архів",
 ];

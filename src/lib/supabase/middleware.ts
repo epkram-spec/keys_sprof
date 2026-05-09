@@ -21,6 +21,7 @@ const routeRoles: Array<{
 }> = [
   { prefix: "/admin", roles: ["admin"] },
   { prefix: "/imports", roles: ["admin"] },
+  { prefix: "/reports/export.xlsx", roles: ["manager", "marketing", "leader", "admin"] },
   { prefix: "/reports", roles: ["leader", "admin"] },
   { prefix: "/marketing", roles: ["marketing", "leader", "admin"] },
   { prefix: "/cases/new", roles: ["manager", "leader", "admin"] },

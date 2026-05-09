@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { InfoHint } from "@/components/ui/info-hint";
-import { projectStageOptions } from "@/lib/cases/types";
+import { legacyStageMapping, projectStageOptions } from "@/lib/cases/types";
 
 type StageDateFieldsProps = {
   defaultDate?: string;
@@ -11,7 +11,8 @@ type StageDateFieldsProps = {
 };
 
 export function StageDateFields({ defaultDate = "", defaultStage = "" }: StageDateFieldsProps) {
-  const [stage, setStage] = useState(defaultStage);
+  const normalizedStage = legacyStageMapping[defaultStage] ?? defaultStage;
+  const [stage, setStage] = useState(normalizedStage);
   const label = useMemo(() => (stage ? `Планована дата: ${stage}` : "Планована дата стадії"), [stage]);
 
   return (
@@ -23,7 +24,7 @@ export function StageDateFields({ defaultDate = "", defaultStage = "" }: StageDa
         </span>
         <select
           className="mt-2 h-10 w-full rounded-md border bg-background px-3"
-          defaultValue={defaultStage}
+          defaultValue={normalizedStage}
           name="projectStage"
           onChange={(event) => setStage(event.target.value)}
         >

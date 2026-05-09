@@ -11,6 +11,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import type { AppRole } from "@/lib/auth/types";
 import { roleLabels } from "@/lib/auth/types";
 import { formatDateTime } from "@/lib/cases/format";
+import { activityLabels } from "@/lib/cases/helpers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type ProfileRow = {
@@ -222,7 +223,7 @@ function DirectoryPanel({
           <Button className="w-full sm:w-auto" type="submit">Додати</Button>
         </div>
       </form>
-      <div className="mt-4 space-y-2">
+      <div className="mt-4 max-h-[560px] space-y-2 overflow-y-auto pr-1">
         {items.map((item) => (
           <form action={action} className="grid min-w-0 gap-2 rounded-md border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_100px] xl:grid-cols-[minmax(0,1fr)_100px_auto_auto]" key={item.id}>
             <input name="id" type="hidden" value={item.id} />
@@ -250,7 +251,7 @@ function LogPanel({ activity }: { activity: ActivityRow[] }) {
       <div className="mt-4 space-y-3">
         {activity.length ? activity.map((item) => (
           <article className="rounded-md border bg-background p-3" key={item.id}>
-            <p className="font-medium">{item.action}</p>
+            <p className="font-medium">{activityLabels[item.action] ?? item.action}</p>
             <p className="mt-1 text-xs text-muted-foreground">
               {item.actor?.display_name ?? item.actor?.email ?? "Система"} · {formatDateTime(item.created_at)}
             </p>
@@ -273,7 +274,7 @@ function SystemNotificationsPanel({ events }: { events: NotificationEventRow[] }
           <article className="rounded-md border bg-background p-3" key={event.id}>
             <p className="font-medium">{event.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">{event.body}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{event.type} · {formatDateTime(event.created_at)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{activityLabels[event.type] ?? event.type} · {formatDateTime(event.created_at)}</p>
           </article>
         )) : <p className="text-sm text-muted-foreground">Системних записів ще немає.</p>}
       </div>

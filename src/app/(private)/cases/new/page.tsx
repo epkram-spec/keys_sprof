@@ -26,8 +26,8 @@ export default async function NewCasePage({ searchParams }: NewCasePageProps) {
   return (
     <>
       <PageHeader
-        title="Додати кейс"
-        description="Заповніть коротку інформацію про обʼєкт, стадію проєкту і те, чи можна знімати матеріал для маркетингу."
+        title="Швидке додавання кейсу"
+        description="Заповніть лише основне — назву, опис, сегмент, місто і статус. Решту можна доповнити потім у картці кейсу."
       />
       {params.error ? (
         <p className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

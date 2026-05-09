@@ -5,11 +5,9 @@ import { addCommentAction, transferToMarketingAction, uploadCaseFileAction } fro
 import { CaseForm } from "@/components/cases/case-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { getPriorityTone, getStageTone, getToneCardClass, StatusPill } from "@/components/ui/status-pill";
-import { formatDateTime, getMetadataText } from "@/lib/cases/format";
+import { formatDateTime } from "@/lib/cases/format";
 import type { CaseFileRow } from "@/lib/cases/files";
-import { scoringCriteria, type ScoringResult } from "@/lib/cases/scoring";
-import { projectStageOptions, type CaseActivity, type CaseComment, type CaseRow, type DirectoryOption } from "@/lib/cases/types";
+import { type CaseActivity, type CaseComment, type CaseRow, type DirectoryOption } from "@/lib/cases/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type CaseDetailsPageProps = {
@@ -23,7 +21,7 @@ type CaseDetailsPageProps = {
 };
 
 const successMessages: Record<string, string> = {
-  created: "Кейс додано.",
+  created: "Кейс додано. Доповніть деталі нижче.",
   updated: "Зміни збережено.",
   comment: "Коментар додано.",
   transfer: "Кейс передано в маркетинг зі статусом «Перевірити».",
@@ -41,6 +39,16 @@ const errorMessages: Record<string, string> = {
   file_type: "Тип файлу не дозволений. Дозволено jpg, png, webp, pdf, mp4, mov.",
   file_access: "Немає доступу до цього кейсу.",
   file_upload: "Не вдалося додати файл.",
+};
+
+const activityLabels: Record<string, string> = {
+  "case.created": "Кейс створено",
+  "case.updated": "Кейс оновлено",
+  "case.scored": "Скоринг оновлено",
+  "comment.created": "Коментар додано",
+  "case.transferred_to_marketing": "Кейс передано в маркетинг",
+  "marketing.status_changed": "Маркетолог змінив статус",
+  "file.uploaded": "Файл додано",
 };
 
 export default async function CaseDetailsPage({ params, searchParams }: CaseDetailsPageProps) {
@@ -120,8 +128,6 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
 
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-6">
-          <CaseSummary caseItem={typedCase} />
-          <ScoringExplanation caseItem={typedCase} />
           <CaseForm
             caseItem={typedCase}
             cities={(cities ?? []) as DirectoryOption[]}
@@ -141,84 +147,6 @@ export default async function CaseDetailsPage({ params, searchParams }: CaseDeta
   );
 }
 
-function CaseSummary({ caseItem }: { caseItem: CaseRow }) {
-  const priority = getPriority(caseItem);
-  const monitoring = getMonitoring(caseItem);
-  const scoringInput = getScoringInput(caseItem);
-  const stage = getText(monitoring, "projectStage");
-  const stagePlannedDate = getText(monitoring, "stagePlannedDate") || getText(monitoring, "keyDate");
-
-  return (
-    <section className="space-y-5 rounded-lg border bg-card p-5">
-      <div className="grid gap-4 md:grid-cols-4">
-        <SummaryItem label="Статус кейсу" value={caseItem.project_status ?? "Новий"} />
-        <SummaryItem label="Статус маркетингу" value={caseItem.marketing_status ?? "Новий"} />
-        <SummaryItem label="Сегмент" value={caseItem.case_segments?.name ?? "Не вибрано"} />
-        <SummaryItem label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
-        <SummaryItem label="Власник" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
-        <SummaryItem label="Оцінка" value={caseItem.score === null ? "Не вказано" : String(caseItem.score)} />
-        <SummaryItem label="Пріоритет" value={priority} />
-        <SummaryItem label="Планова дата" value={stagePlannedDate || "Не вказано"} />
-      </div>
-
-      <div className="rounded-md border bg-background p-4">
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="font-semibold">Стадія проєкту</h2>
-          <span className="text-sm text-muted-foreground">{stage || "Стадію не вказано"}</span>
-        </div>
-        <StageStepper currentStage={stage} />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <TextSummary label="Задача" value={getText(scoringInput, "hasClientTask")} />
-        <TextSummary label="Рішення SPROF" value={getText(scoringInput, "hasSprofSolution")} />
-        <TextSummary label="Очікуваний результат" value={getText(scoringInput, "hasMetricOrEffect")} />
-        <TextSummary label="Особливість проєкту" value={getText(scoringInput, "hasVisualHook")} />
-      </div>
-
-      <div>
-        <p className="text-xs font-medium uppercase text-muted-foreground">Контекст</p>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Контакт: {getMetadataText(caseItem.metadata, "contactName") || "не вказано"} · Джерело:{" "}
-          {getMetadataText(caseItem.metadata, "source") || "не вказано"}
-        </p>
-      </div>
-    </section>
-  );
-}
-
-function StageStepper({ currentStage }: { currentStage: string }) {
-  const currentIndex = projectStageOptions.indexOf(currentStage);
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {projectStageOptions.map((stage, index) => {
-        const isCurrent = stage === currentStage;
-        const isDone = currentIndex >= 0 && index < currentIndex;
-        return (
-          <div
-            className={`rounded-md border px-3 py-2 text-sm ${getToneCardClass(isCurrent ? getStageTone(stage) : isDone ? "green" : "slate")} ${
-              isCurrent ? "font-semibold shadow-sm" : isDone ? "opacity-85" : "opacity-65"
-            }`}
-            key={stage}
-          >
-            {stage}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function TextSummary({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border bg-background p-3">
-      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm leading-6">{value || "Не заповнено"}</p>
-    </div>
-  );
-}
-
 function FilesPanel({ caseId, files }: { caseId: string; files: CaseFileRow[] }) {
   return (
     <section className="rounded-lg border bg-card p-5">
@@ -228,13 +156,17 @@ function FilesPanel({ caseId, files }: { caseId: string; files: CaseFileRow[] })
       </p>
       <form action={uploadCaseFileAction} className="mt-4 space-y-3">
         <input name="caseId" type="hidden" value={caseId} />
-        <input
-          accept=".jpg,.jpeg,.png,.webp,.pdf,.mp4,.mov,image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime"
-          className="block w-full rounded-md border bg-background px-3 py-2 text-sm"
-          name="file"
-          required
-          type="file"
-        />
+        <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed bg-background px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+          <svg className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+          <span>Обрати файл для завантаження</span>
+          <input
+            accept=".jpg,.jpeg,.png,.webp,.pdf,.mp4,.mov,image/jpeg,image/png,image/webp,application/pdf,video/mp4,video/quicktime"
+            className="sr-only"
+            name="file"
+            required
+            type="file"
+          />
+        </label>
         <Button type="submit">Додати файл</Button>
       </form>
       <div className="mt-5 space-y-3">
@@ -258,56 +190,6 @@ function FilesPanel({ caseId, files }: { caseId: string; files: CaseFileRow[] })
         )}
       </div>
     </section>
-  );
-}
-
-function ScoringExplanation({ caseItem }: { caseItem: CaseRow }) {
-  const scoring = getScoring(caseItem);
-
-  if (!scoring) {
-    return (
-      <section className="rounded-lg border bg-card p-5">
-        <h2 className="text-lg font-semibold">Пояснення балів</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Пояснення зʼявиться після збереження кейсу з факторами скорингу.
-        </p>
-      </section>
-    );
-  }
-
-  return (
-    <details className="group rounded-lg border bg-card p-5">
-      <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Пояснення балів</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {scoring.score} балів · {scoring.priority}
-          </p>
-        </div>
-        <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
-        <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
-      </summary>
-      <div className="mt-4 grid gap-2 border-t pt-4">
-        {scoring.details.map((item) => (
-          <div
-            className="flex items-center justify-between gap-3 rounded-md border bg-background px-3 py-2 text-sm"
-            key={item.label}
-          >
-            <span className={item.matched ? "font-medium" : "text-muted-foreground"}>{getScoringLabel(item.label)}</span>
-            <StatusPill tone={item.matched ? getPriorityTone(scoring.priority) : "slate"}>{item.matched ? `+${item.points}` : "0"}</StatusPill>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-semibold">{value}</p>
-    </div>
   );
 }
 
@@ -394,42 +276,4 @@ function ActivityPanel({ activity }: { activity: CaseActivity[] }) {
       </div>
     </section>
   );
-}
-
-const activityLabels: Record<string, string> = {
-  "case.created": "Кейс створено",
-  "case.updated": "Кейс оновлено",
-  "case.scored": "Скоринг оновлено",
-  "comment.created": "Коментар додано",
-  "case.transferred_to_marketing": "Кейс передано в маркетинг",
-};
-
-function getScoring(caseItem: CaseRow) {
-  const scoring = caseItem.metadata?.scoring;
-  return scoring && typeof scoring === "object" ? (scoring as ScoringResult) : null;
-}
-
-function getScoringLabel(label: string) {
-  const criterion = scoringCriteria.find((item) => item.key === label || item.fullLabel === label || item.shortLabel === label);
-  return criterion?.fullLabel ?? label;
-}
-
-function getPriority(caseItem: CaseRow) {
-  const priority = caseItem.metadata?.priority;
-  return typeof priority === "string" ? priority : "Не визначено";
-}
-
-function getMonitoring(caseItem: CaseRow) {
-  const monitoring = caseItem.metadata?.marketingMonitoring;
-  return monitoring && typeof monitoring === "object" ? (monitoring as Record<string, unknown>) : {};
-}
-
-function getScoringInput(caseItem: CaseRow) {
-  const scoringInput = caseItem.metadata?.scoringInput;
-  return scoringInput && typeof scoringInput === "object" ? (scoringInput as Record<string, unknown>) : {};
-}
-
-function getText(source: Record<string, unknown>, key: string) {
-  const value = source[key];
-  return typeof value === "string" ? value : "";
 }

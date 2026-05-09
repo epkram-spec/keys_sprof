@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import type { AppRole } from "@/lib/auth/types";
 import type { CaseRow } from "@/lib/cases/types";
-import { buildCasesCsv } from "@/lib/reports/csv";
+import { buildCasesExcel } from "@/lib/reports/excel";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -17,33 +17,39 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role,is_active")
     .eq("id", user.id)
-    .single<{ role: AppRole }>();
+    .single<{ role: AppRole; is_active: boolean }>();
 
-  if (profile?.role !== "leader" && profile?.role !== "admin") {
-    return new NextResponse("CSV-експорт доступний тільки керівнику й адміністратору.", { status: 403 });
+  if (!profile?.is_active) {
+    return new NextResponse("Обліковий запис деактивовано.", { status: 403 });
   }
 
-  const { data } = await supabase
+  let query = supabase
     .from("cases")
     .select(
       `
         id,title,summary,owner_user_id,created_by_user_id,assigned_marketing_user_id,
         segment_id,city_id,project_status,marketing_status,score,metadata,created_at,updated_at,archived_at,
+        case_segments(name),
         cities(name),
         owner:profiles!cases_owner_user_id_fkey(display_name,email)
       `,
     )
-    .is("archived_at", null)
-    .order("updated_at", { ascending: false });
+    .is("archived_at", null);
 
-  const csv = buildCasesCsv((data ?? []) as unknown as CaseRow[]);
+  if (profile.role === "manager") {
+    query = query.eq("owner_user_id", user.id);
+  }
 
-  return new NextResponse(`\uFEFF${csv}`, {
+  const { data } = await query.order("updated_at", { ascending: false });
+
+  const excelBuffer = await buildCasesExcel((data ?? []) as unknown as CaseRow[]);
+
+  return new NextResponse(excelBuffer as unknown as BodyInit, {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": "attachment; filename=\"sprof-cases-report.csv\"",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": "attachment; filename=\"sprof-cases-report.xlsx\"",
       "Cache-Control": "private, no-store",
     },
   });
