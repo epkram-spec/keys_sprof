@@ -38,7 +38,7 @@ export function StatusPill({
   tone?: StatusTone;
 }) {
   return (
-    <span className={cn("h-fit w-fit rounded-md border px-2.5 py-1 text-xs font-semibold", toneClasses[tone], className)}>
+    <span className={cn("h-fit max-w-full rounded-md border px-2.5 py-1 text-xs font-semibold leading-4", toneClasses[tone], className)}>
       {children}
     </span>
   );
@@ -85,7 +85,7 @@ export function getProjectTone(status: string): StatusTone {
 }
 
 export function getMarketingTone(status: string): StatusTone {
-  if (status.includes("Перевір") || status.includes("погод")) {
+  if (status.includes("Перевір") || status.includes("Погод") || status.includes("погод")) {
     return "orange";
   }
 
@@ -97,7 +97,7 @@ export function getMarketingTone(status: string): StatusTone {
     return "blue";
   }
 
-  if (status.includes("Монтаж") || status.includes("Знято")) {
+  if (status.includes("Матеріал") || status.includes("Знято")) {
     return "violet";
   }
 

@@ -152,7 +152,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
       ) : null}
 
       <section className="animate-fade-in overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="hidden min-w-0 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(220px,1.7fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(118px,0.8fr)_minmax(132px,0.9fr)_minmax(132px,0.9fr)] lg:gap-3">
+        <div className="hidden min-w-0 border-b bg-muted/60 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground lg:grid lg:grid-cols-[minmax(260px,2fr)_minmax(100px,0.7fr)_minmax(150px,0.9fr)_minmax(150px,0.8fr)_minmax(150px,0.9fr)_minmax(170px,0.9fr)] lg:gap-4">
           <span className="flex items-center gap-1">Кейс <InfoHint label="Назва кейсу, короткий опис і сегмент." /></span>
           <span className="flex items-center gap-1">Місто <InfoHint label="Місто, де відбувається проєкт або монтаж." /></span>
           <span className="flex items-center gap-1">Менеджер <InfoHint label="Відповідальний менеджер за кейс." /></span>
@@ -186,7 +186,7 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
 
   return (
     <Link
-      className={`grid min-w-0 gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(220px,1.7fr)_minmax(86px,0.7fr)_minmax(120px,0.9fr)_minmax(118px,0.8fr)_minmax(132px,0.9fr)_minmax(132px,0.9fr)] lg:items-center lg:gap-3 ${isInMarketing ? "border-l-4 border-l-violet-400" : ""}`}
+      className={`grid min-w-0 gap-3 border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/40 lg:grid-cols-[minmax(260px,2fr)_minmax(100px,0.7fr)_minmax(150px,0.9fr)_minmax(150px,0.8fr)_minmax(150px,0.9fr)_minmax(170px,0.9fr)] lg:items-start lg:gap-4 ${isInMarketing ? "border-l-4 border-l-violet-400" : ""}`}
       href={`/cases/${caseItem.id}`}
     >
       <div className="min-w-0">
@@ -196,20 +196,20 @@ function CaseTableRow({ caseItem }: { caseItem: CaseRow }) {
       </div>
       <MobileMeta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
       <MobileMeta label="Менеджер" value={caseItem.owner?.display_name ?? caseItem.owner?.email ?? "Невідомо"} />
-      <div className="flex flex-wrap items-center gap-2 lg:block">
-        <StatusPill tone={getPriorityTone(priority)}>{caseItem.score ?? 0} · {priority}</StatusPill>
+      <div className="flex min-w-0 flex-col items-start gap-1">
+        <StatusPill className="break-words" tone={getPriorityTone(priority)}>{caseItem.score ?? 0} · {priority}</StatusPill>
         {incomplete ? <StatusPill tone="orange">Доповнити</StatusPill> : null}
       </div>
-      <div className="flex flex-wrap gap-2">
-        <StatusPill tone={getProjectTone(caseItem.project_status ?? "Новий")}>{caseItem.project_status ?? "Новий"}</StatusPill>
+      <div className="flex min-w-0 flex-col items-start gap-2">
+        <StatusPill className="break-words" tone={getProjectTone(caseItem.project_status ?? "Новий")}>{caseItem.project_status ?? "Новий"}</StatusPill>
         <span className="flex items-center text-sm" title={`Дозвіл: ${permission || "Не вказано"}`}>
           {permission === "Так" ? "📷" : permission === "Ні" ? "🚫" : "❓"}
         </span>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-col items-start gap-2">
         <StagePill stage={stage} />
         {isInMarketing ? (
-          <StatusPill tone={getMarketingTone(caseItem.marketing_status ?? "Новий")}>{caseItem.marketing_status}</StatusPill>
+          <StatusPill className="break-words" tone={getMarketingTone(caseItem.marketing_status ?? "Новий")}>{caseItem.marketing_status}</StatusPill>
         ) : null}
       </div>
     </Link>
@@ -306,7 +306,7 @@ function MobileMeta({ label, value }: { label: string; value: string }) {
 
 function StagePill({ stage }: { stage: string }) {
   return (
-    <StatusPill tone={getStageTone(stage)}>
+    <StatusPill className="break-words" tone={getStageTone(stage)}>
       {stage || "Без стадії"}
     </StatusPill>
   );

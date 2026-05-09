@@ -44,6 +44,7 @@ const errorMessages: Record<string, string> = {
   forbidden: "У вас немає права змінювати статус маркетингу.",
   case_not_found: "Кейс не знайдено.",
   update_failed: "Не вдалося оновити статус.",
+  shooting_date_required: "Вкажіть дату зйомки для статусу «Зйомку заплановано».",
 };
 
 export default async function MarketingPage({ searchParams }: MarketingPageProps) {
@@ -188,6 +189,8 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
             <Meta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
             <Meta label="Пріоритет" tone={getPriorityTone(priority)} value={`${caseItem.score ?? 0} · ${priority}`} />
             <Meta label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
+            <Meta label="Статус змінено" value={getMarketingStatusChangedAt(caseItem)} />
+            <Meta label="Дата зйомки" value={getPlannedShootingDate(caseItem) || "Не вказано"} />
             <Meta label="Дозвіл" tone={getPermissionTone(permission || "Ні")} value={permission || "Ні"} />
             <Meta label="Дати" tone={datesReady ? "blue" : "orange"} value={datesReady ? "Є дати" : "Без дат"} />
           </div>
@@ -211,6 +214,15 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
               ))}
             </select>
           </label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Дата зйомки
+            <input
+              className="mt-2 h-10 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+              defaultValue={getPlannedShootingDate(caseItem)}
+              name="plannedShootingDate"
+              type="date"
+            />
+          </label>
           <Button size="sm" type="submit" variant="secondary">
             <ArrowRight className="size-4" aria-hidden="true" />
             Змінити статус
@@ -220,7 +232,7 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
           <QuickStatusButton caseId={caseItem.id} status="Готово до зйомки">
             Прийняти в роботу
           </QuickStatusButton>
-          <QuickStatusButton caseId={caseItem.id} status="Потрібно погодити зйомку" variant="outline">
+          <QuickStatusButton caseId={caseItem.id} status="Погодити зйомку" variant="outline">
             Повернути менеджеру
           </QuickStatusButton>
           <QuickStatusButton caseId={caseItem.id} status="Опубліковано" variant="outline">
@@ -345,16 +357,36 @@ function getScoringInput(caseItem: CaseRow) {
     : {};
 }
 
+function getPlannedShootingDate(caseItem: CaseRow) {
+  const workflow = caseItem.metadata?.marketingWorkflow;
+  if (workflow && typeof workflow === "object" && !Array.isArray(workflow)) {
+    const value = (workflow as Record<string, unknown>).plannedShootingDate;
+    return typeof value === "string" ? value.slice(0, 10) : "";
+  }
+
+  return "";
+}
+
+function getMarketingStatusChangedAt(caseItem: CaseRow) {
+  const workflow = caseItem.metadata?.marketingWorkflow;
+  if (workflow && typeof workflow === "object" && !Array.isArray(workflow)) {
+    const value = (workflow as Record<string, unknown>).statusChangedAt;
+    return typeof value === "string" ? formatDateTime(value) : "Не вказано";
+  }
+
+  return "Не вказано";
+}
+
 function getGroupAccent(status: string) {
-  if (status === "Перевірити" || status === "Потрібно погодити зйомку") {
+  if (status === "Перевірити" || status === "Погодити зйомку") {
     return "border-l-4 border-l-orange-400";
   }
 
-  if (status === "Готово до зйомки" || status === "Зйомка запланована") {
+  if (status === "Готово до зйомки" || status === "Зйомку заплановано") {
     return "border-l-4 border-l-blue-400";
   }
 
-  if (status === "Знято" || status === "Монтаж") {
+  if (status === "Знято" || status === "Матеріали в обробці") {
     return "border-l-4 border-l-violet-400";
   }
 
