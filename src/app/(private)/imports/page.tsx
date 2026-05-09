@@ -162,7 +162,12 @@ export default async function ImportsPage({ searchParams }: ImportsPageProps) {
                   {previewRows.map((row) => (
                     <tr className="border-b last:border-b-0" key={`${row.googleSheetRowId}-${row.index}`}>
                       <td className="py-2 pr-3">
-                        <input disabled={row.status !== "новий"} name="rowIndex" type="checkbox" value={row.index} />
+                        <input
+                          disabled={row.status !== "новий" && row.status !== "готовий до оновлення"}
+                          name="rowIndex"
+                          type="checkbox"
+                          value={row.index}
+                        />
                       </td>
                       <td className="py-2 pr-3">
                         <StatusBadge status={row.status} />
@@ -219,7 +224,13 @@ function TextInput({ label, name, placeholder }: { label: string; name: string; 
 }
 
 function StatusBadge({ status }: { status: PreviewRow["status"] }) {
-  return <span className="rounded-md border bg-background px-2 py-1 text-xs font-semibold">{status}</span>;
+  let color = "bg-background text-foreground";
+  if (status === "новий") color = "bg-primary/10 text-primary border-primary/20";
+  if (status === "готовий до оновлення") color = "bg-blue-500/10 text-blue-600 border-blue-500/20";
+  if (status === "помилка") color = "bg-destructive/10 text-destructive border-destructive/20";
+  if (status === "вже імпортовано" || status === "можливий дубль") color = "bg-muted text-muted-foreground";
+
+  return <span className={`rounded-md border px-2 py-1 text-xs font-semibold ${color}`}>{status}</span>;
 }
 
 function translateImportStatus(status: string) {

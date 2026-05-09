@@ -44,3 +44,47 @@ textarea,
 select {
   outline-color: hsl(var(--ring));
 }
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+  padding: 0.45rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+}
+
+@keyframes bell-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(12deg);
+  }
+  40% {
+    transform: rotate(-10deg);
+  }
+  60% {
+    transform: rotate(7deg);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
+}
+
+.animate-bell-ring {
+  animation: bell-ring 1.4s ease-in-out infinite;
+  transform-origin: 50% 0%;
+}

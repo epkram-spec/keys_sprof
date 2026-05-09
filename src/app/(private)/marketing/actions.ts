@@ -5,10 +5,20 @@ import { redirect } from "next/navigation";
 
 import type { AppRole } from "@/lib/auth/types";
 import { marketingStatusOptions } from "@/lib/cases/types";
+import { createNotification } from "@/lib/notifications/create";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function readOptionalText(formData: FormData, key: string) {
+  const value = readText(formData, key);
+  return value ? value : null;
+}
+
+function getObject(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 async function getCurrentProfile() {
@@ -37,9 +47,14 @@ async function getCurrentProfile() {
 export async function updateMarketingStatusAction(formData: FormData) {
   const caseId = readText(formData, "caseId");
   const nextStatus = readText(formData, "marketingStatus");
+  const plannedShootingDate = readOptionalText(formData, "plannedShootingDate");
 
   if (!caseId || !marketingStatusOptions.includes(nextStatus)) {
     redirect("/marketing?error=invalid_status");
+  }
+
+  if (nextStatus === "Зйомку заплановано" && !plannedShootingDate) {
+    redirect("/marketing?error=shooting_date_required");
   }
 
   const { supabase, user, role } = await getCurrentProfile();
@@ -50,9 +65,9 @@ export async function updateMarketingStatusAction(formData: FormData) {
 
   const { data: currentCase, error: readError } = await supabase
     .from("cases")
-    .select("marketing_status,title")
+    .select("marketing_status,title,owner_user_id,metadata")
     .eq("id", caseId)
-    .single<{ marketing_status: string | null; title: string }>();
+    .single<{ marketing_status: string | null; title: string; owner_user_id: string; metadata: Record<string, unknown> | null }>();
 
   if (readError || !currentCase) {
     redirect("/marketing?error=case_not_found");
@@ -64,7 +79,39 @@ export async function updateMarketingStatusAction(formData: FormData) {
     redirect("/marketing?success=no_changes");
   }
 
-  const { error } = await supabase.from("cases").update({ marketing_status: nextStatus }).eq("id", caseId);
+  const now = new Date().toISOString();
+  const currentMetadata = getObject(currentCase.metadata);
+  const marketingWorkflow = getObject(currentMetadata.marketingWorkflow);
+  const statusHistory = Array.isArray(marketingWorkflow.statusHistory) ? marketingWorkflow.statusHistory : [];
+  const nextWorkflow = {
+    ...marketingWorkflow,
+    statusChangedAt: now,
+    plannedShootingDate:
+      nextStatus === "Зйомку заплановано"
+        ? plannedShootingDate
+        : typeof marketingWorkflow.plannedShootingDate === "string"
+          ? marketingWorkflow.plannedShootingDate
+          : null,
+    statusHistory: [
+      ...statusHistory,
+      {
+        previousStatus,
+        nextStatus,
+        changedAt: now,
+        changedBy: user.id,
+        plannedShootingDate: nextStatus === "Зйомку заплановано" ? plannedShootingDate : null,
+      },
+    ],
+  };
+  const metadata = {
+    ...currentMetadata,
+    marketingWorkflow: nextWorkflow,
+  };
+
+  const { error } = await supabase
+    .from("cases")
+    .update({ marketing_status: nextStatus, assigned_marketing_user_id: user.id, metadata })
+    .eq("id", caseId);
 
   if (error) {
     redirect("/marketing?error=update_failed");
@@ -78,7 +125,21 @@ export async function updateMarketingStatusAction(formData: FormData) {
       title: currentCase.title,
       previousStatus,
       nextStatus,
+      changedAt: now,
+      plannedShootingDate: nextWorkflow.plannedShootingDate,
     },
+  });
+
+  // Notify the case owner about the status change
+  await createNotification({
+    type: "marketing.status_changed",
+    title: `Маркетинг змінив статус`,
+    body: `Кейс «${currentCase.title}»: ${previousStatus} → ${nextStatus}.`,
+    caseId,
+    actorUserId: user.id,
+    recipientUserIds: [currentCase.owner_user_id],
+    priority: "normal",
+    metadata: { previousStatus, nextStatus, changedAt: now, plannedShootingDate: nextWorkflow.plannedShootingDate },
   });
 
   revalidatePath("/marketing");

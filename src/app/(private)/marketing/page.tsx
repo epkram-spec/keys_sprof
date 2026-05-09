@@ -44,6 +44,7 @@ const errorMessages: Record<string, string> = {
   forbidden: "У вас немає права змінювати статус маркетингу.",
   case_not_found: "Кейс не знайдено.",
   update_failed: "Не вдалося оновити статус.",
+  shooting_date_required: "Вкажіть дату зйомки для статусу «Зйомку заплановано».",
 };
 
 export default async function MarketingPage({ searchParams }: MarketingPageProps) {
@@ -141,22 +142,29 @@ export default async function MarketingPage({ searchParams }: MarketingPageProps
         </p>
       ) : null}
 
-      <section className="space-y-4">
-        {groupedCases.map((group) => (
-          <div className="rounded-lg border bg-card shadow-sm" key={group.status}>
-            <div className="flex flex-col gap-2 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
-              <StatusPill className="text-sm" tone={getMarketingTone(group.status)}>{group.status}</StatusPill>
-              <p className="text-sm text-muted-foreground">{group.cases.length} кейсів</p>
+      <section className="animate-fade-in space-y-4">
+        {groupedCases.map((group) => {
+          const accentClass = getGroupAccent(group.status);
+          return (
+            <div className={`rounded-lg border bg-card shadow-sm ${accentClass}`} key={group.status}>
+              <div className="flex flex-col gap-2 border-b bg-muted/60 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <StatusPill className="text-sm" tone={getMarketingTone(group.status)}>{group.status}</StatusPill>
+                  <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                    {group.cases.length}
+                  </span>
+                </div>
+              </div>
+              <div className="grid gap-3 p-3 2xl:grid-cols-2">
+                {group.cases.length ? (
+                  group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
+                ) : (
+                  <p className="p-3 text-sm text-muted-foreground">Немає кейсів.</p>
+                )}
+              </div>
             </div>
-            <div className="grid gap-3 p-3 2xl:grid-cols-2">
-              {group.cases.length ? (
-                group.cases.map((caseItem) => <MarketingRow caseItem={caseItem} key={caseItem.id} />)
-              ) : (
-                <p className="p-3 text-sm text-muted-foreground">Немає кейсів.</p>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
     </>
   );
@@ -181,6 +189,8 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
             <Meta label="Місто" value={caseItem.cities?.name ?? "Не вибрано"} />
             <Meta label="Пріоритет" tone={getPriorityTone(priority)} value={`${caseItem.score ?? 0} · ${priority}`} />
             <Meta label="Оновлено" value={formatDateTime(caseItem.updated_at)} />
+            <Meta label="Статус змінено" value={getMarketingStatusChangedAt(caseItem)} />
+            <Meta label="Дата зйомки" value={getPlannedShootingDate(caseItem) || "Не вказано"} />
             <Meta label="Дозвіл" tone={getPermissionTone(permission || "Ні")} value={permission || "Ні"} />
             <Meta label="Дати" tone={datesReady ? "blue" : "orange"} value={datesReady ? "Є дати" : "Без дат"} />
           </div>
@@ -204,13 +214,55 @@ function MarketingRow({ caseItem }: { caseItem: CaseRow }) {
               ))}
             </select>
           </label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Дата зйомки
+            <input
+              className="mt-2 h-10 w-full rounded-md border bg-background px-2 text-sm text-foreground"
+              defaultValue={getPlannedShootingDate(caseItem)}
+              name="plannedShootingDate"
+              type="date"
+            />
+          </label>
           <Button size="sm" type="submit" variant="secondary">
             <ArrowRight className="size-4" aria-hidden="true" />
             Змінити статус
           </Button>
         </form>
+        <div className="grid gap-2 xl:col-start-2">
+          <QuickStatusButton caseId={caseItem.id} status="Готово до зйомки">
+            Прийняти в роботу
+          </QuickStatusButton>
+          <QuickStatusButton caseId={caseItem.id} status="Погодити зйомку" variant="outline">
+            Повернути менеджеру
+          </QuickStatusButton>
+          <QuickStatusButton caseId={caseItem.id} status="Опубліковано" variant="outline">
+            Опублікувати
+          </QuickStatusButton>
+        </div>
       </div>
     </article>
+  );
+}
+
+function QuickStatusButton({
+  caseId,
+  children,
+  status,
+  variant = "secondary",
+}: {
+  caseId: string;
+  children: React.ReactNode;
+  status: string;
+  variant?: ComponentProps<typeof Button>["variant"];
+}) {
+  return (
+    <form action={updateMarketingStatusAction}>
+      <input name="caseId" type="hidden" value={caseId} />
+      <input name="marketingStatus" type="hidden" value={status} />
+      <Button className="w-full justify-start" size="sm" type="submit" variant={variant}>
+        {children}
+      </Button>
+    </form>
   );
 }
 
@@ -303,4 +355,40 @@ function getScoringInput(caseItem: CaseRow) {
   return caseItem.metadata?.scoringInput && typeof caseItem.metadata.scoringInput === "object"
     ? normalizeLegacyScoringInput(caseItem.metadata.scoringInput as Record<string, unknown>)
     : {};
+}
+
+function getPlannedShootingDate(caseItem: CaseRow) {
+  const workflow = caseItem.metadata?.marketingWorkflow;
+  if (workflow && typeof workflow === "object" && !Array.isArray(workflow)) {
+    const value = (workflow as Record<string, unknown>).plannedShootingDate;
+    return typeof value === "string" ? value.slice(0, 10) : "";
+  }
+
+  return "";
+}
+
+function getMarketingStatusChangedAt(caseItem: CaseRow) {
+  const workflow = caseItem.metadata?.marketingWorkflow;
+  if (workflow && typeof workflow === "object" && !Array.isArray(workflow)) {
+    const value = (workflow as Record<string, unknown>).statusChangedAt;
+    return typeof value === "string" ? formatDateTime(value) : "Не вказано";
+  }
+
+  return "Не вказано";
+}
+
+function getGroupAccent(status: string) {
+  if (status === "Перевірити" || status === "Погодити зйомку") {
+    return "border-l-4 border-l-orange-400";
+  }
+
+  if (status === "Готово до зйомки" || status === "Зйомку заплановано") {
+    return "border-l-4 border-l-blue-400";
+  }
+
+  if (status === "Знято" || status === "Матеріали в обробці") {
+    return "border-l-4 border-l-violet-400";
+  }
+
+  return "";
 }

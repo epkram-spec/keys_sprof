@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { caseFileBucket, isAllowedCaseFile } from "@/lib/cases/files";
 import { booleanFromFormValue, calculateCaseScore } from "@/lib/cases/scoring";
+import { createNotification, getUserIdsByRole } from "@/lib/notifications/create";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -159,15 +160,17 @@ function buildCaseMetadata(formData: FormData, currentMetadata: Record<string, u
 }
 
 async function createHotCaseNotification(caseId: string, actorUserId: string, title: string, score: number) {
-  const { supabase } = await getCurrentUser();
-  await supabase.from("notification_events").insert({
-    case_id: caseId,
+  const recipients = await getUserIdsByRole("marketing", "leader", "admin");
+  await createNotification({
     type: "case_hot",
     title: "Гарячий кейс",
     body: `Кейс «${title}» набрав ${score} балів і потребує уваги маркетингу.`,
-    actor_user_id: actorUserId,
+    caseId,
+    actorUserId,
+    recipientUserIds: recipients,
+    priority: "high",
     metadata: { score },
-    dedupe_key: `case:${caseId}:case_hot`,
+    dedupeKey: `case:${caseId}:case_hot`,
   });
 }
 
@@ -180,10 +183,6 @@ export async function createCaseAction(formData: FormData) {
 
   if (!title || !summary || !segmentId || !projectStatus || !cityName) {
     redirect("/cases/new?error=required");
-  }
-
-  if (!booleanFromFormValue(formData.get("hasPermissionChance")) && !readText(formData, "permissionComment")) {
-    redirect("/cases/new?error=permission_comment");
   }
 
   const { supabase, user } = await getCurrentUser();
@@ -243,7 +242,16 @@ export async function updateCaseAction(formData: FormData) {
   }
 
   const { supabase, user } = await getCurrentUser();
-  const { data: current } = await supabase.from("cases").select("metadata").eq("id", caseId).single();
+  const { data: current } = await supabase
+    .from("cases")
+    .select("metadata,marketing_status,assigned_marketing_user_id,owner_user_id")
+    .eq("id", caseId)
+    .single<{
+      metadata: Record<string, unknown> | null;
+      marketing_status: string | null;
+      assigned_marketing_user_id: string | null;
+      owner_user_id: string;
+    }>();
   const currentMetadata =
     current?.metadata && typeof current.metadata === "object" ? (current.metadata as Record<string, unknown>) : {};
 
@@ -280,6 +288,23 @@ export async function updateCaseAction(formData: FormData) {
     await createHotCaseNotification(caseId, user.id, title, scoring.score);
   }
 
+  if (current?.marketing_status && current.marketing_status !== "Новий") {
+    const marketingRecipients = current.assigned_marketing_user_id
+      ? [current.assigned_marketing_user_id]
+      : await getUserIdsByRole("marketing", "admin");
+    await createNotification({
+      type: "case.updated_after_marketing_transfer",
+      title: "Кейс оновлено після передачі",
+      body: `Менеджер оновив кейс «${title}», який уже передано в маркетинг.`,
+      caseId,
+      actorUserId: user.id,
+      recipientUserIds: marketingRecipients,
+      priority: "normal",
+      metadata: { marketingStatus: current.marketing_status },
+      dedupeKey: `case:${caseId}:updated_after_transfer:${new Date().toISOString().slice(0, 10)}`,
+    });
+  }
+
   revalidatePath("/cases");
   revalidatePath(`/cases/${caseId}`);
   redirect(`/cases/${caseId}?success=updated`);
@@ -294,6 +319,11 @@ export async function addCommentAction(formData: FormData) {
   }
 
   const { supabase, user } = await getCurrentUser();
+  const { data: currentCase } = await supabase
+    .from("cases")
+    .select("title,owner_user_id,assigned_marketing_user_id")
+    .eq("id", caseId)
+    .single<{ title: string; owner_user_id: string; assigned_marketing_user_id: string | null }>();
   const { error } = await supabase.from("case_comments").insert({
     case_id: caseId,
     author_user_id: user.id,
@@ -305,6 +335,18 @@ export async function addCommentAction(formData: FormData) {
   }
 
   await writeActivity(caseId, user.id, "comment.created", { bodyPreview: body.slice(0, 80) });
+  if (currentCase) {
+    await createNotification({
+      type: "comment.created",
+      title: "Новий коментар",
+      body: `До кейсу «${currentCase.title}» додано новий коментар.`,
+      caseId,
+      actorUserId: user.id,
+      recipientUserIds: [currentCase.owner_user_id, currentCase.assigned_marketing_user_id].filter(Boolean) as string[],
+      priority: "normal",
+      metadata: { bodyPreview: body.slice(0, 80) },
+    });
+  }
   revalidatePath(`/cases/${caseId}`);
   redirect(`/cases/${caseId}?success=comment`);
 }
@@ -327,14 +369,17 @@ export async function transferToMarketingAction(formData: FormData) {
     marketingStatus: "Перевірити",
   });
 
-  await supabase.from("notification_events").insert({
-    case_id: caseId,
+  const marketingUsers = await getUserIdsByRole("marketing", "admin");
+  await createNotification({
     type: "case.transferred_to_marketing",
     title: "Кейс передано в маркетинг",
     body: "Кейс очікує перевірки маркетингом.",
-    actor_user_id: user.id,
+    caseId,
+    actorUserId: user.id,
+    recipientUserIds: marketingUsers,
+    priority: "high",
     metadata: { marketingStatus: "Перевірити" },
-    dedupe_key: `case:${caseId}:transferred_to_marketing`,
+    dedupeKey: `case:${caseId}:transferred_to_marketing`,
   });
 
   revalidatePath("/cases");

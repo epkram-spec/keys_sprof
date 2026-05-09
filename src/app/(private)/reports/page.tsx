@@ -47,7 +47,7 @@ export default async function ReportsPage() {
         />
         {canExport ? (
           <Button asChild variant="secondary">
-            <Link href="/reports/export.csv">Експорт CSV</Link>
+            <Link href="/reports/export.xlsx">Експорт Excel</Link>
           </Button>
         ) : null}
       </div>

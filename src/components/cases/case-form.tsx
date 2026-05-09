@@ -7,7 +7,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { getPriorityTone, getToneCardClass } from "@/components/ui/status-pill";
 import { getMetadataText } from "@/lib/cases/format";
 import { normalizeLegacyScoringInput, scoringCriteria } from "@/lib/cases/scoring";
-import { type CaseRow, type DirectoryOption, projectStatusOptions } from "@/lib/cases/types";
+import { type CaseRow, type DirectoryOption, legacyStageMapping, projectStatusOptions } from "@/lib/cases/types";
 
 type CaseFormProps = {
   mode: "create" | "edit";
@@ -39,7 +39,8 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
       : {};
   const score = caseItem?.score ?? 0;
   const priority = typeof metadata.priority === "string" ? metadata.priority : "Спостерігаємо";
-  const stage = getMonitoringText(monitoring, "projectStage");
+  const rawStage = getMonitoringText(monitoring, "projectStage");
+  const stage = legacyStageMapping[rawStage] ?? rawStage;
   const stagePlannedDate = getMonitoringText(monitoring, "stagePlannedDate") || getMonitoringText(monitoring, "keyDate");
   const permissionStatus =
     scoringInput.permissionStatus === "Так" || scoringInput.permissionStatus === "Ні"
@@ -48,17 +49,118 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         ? "Так"
         : "";
 
+  // --- CREATE MODE: minimal form ---
+  if (mode === "create") {
+    return (
+      <form action={action} className="space-y-5">
+        <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
+          <div className="mb-4 border-b pb-4">
+            <h2 className="text-base font-semibold">Швидке створення кейсу</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Заповніть лише основне. Деталі можна додати пізніше в картці кейсу.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <label className="text-sm font-medium">
+              Назва кейсу *
+              <input
+                className="mt-2 h-10 w-full rounded-md border bg-background px-3"
+                name="title"
+                placeholder="Наприклад: запуск кухні у новому ресторані"
+                required
+              />
+            </label>
+
+            <label className="text-sm font-medium">
+              Короткий опис *
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-md border bg-background px-3 py-2"
+                name="summary"
+                placeholder="1-2 речення: хто клієнт, що робимо і чому це може бути кейсом"
+                required
+              />
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <SelectField label="Сегмент *" name="segmentId" required value="">
+                <option value="">Не вибрано</option>
+                {segments.map((segment) => (
+                  <option key={segment.id} value={segment.id}>
+                    {segment.name}
+                  </option>
+                ))}
+              </SelectField>
+              <label className="text-sm font-medium">
+                <span className="flex items-center gap-2">
+                  Місто *
+                  <InfoHint label="Почніть вводити місто. Можна вибрати з довідника або вписати нове." />
+                </span>
+                <input
+                  className="mt-2 h-10 w-full rounded-md border bg-background px-3"
+                  list="city-options"
+                  name="cityName"
+                  placeholder="Київ або нове місто"
+                  required
+                />
+                <datalist id="city-options">
+                  {cities.map((city) => (
+                    <option key={city.id} value={city.name} />
+                  ))}
+                </datalist>
+              </label>
+              <SelectField label="Статус *" name="projectStatus" required value="Новий">
+                {projectStatusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+          </div>
+        </section>
+
+        {/* Hidden defaults for scoring — so buildCaseMetadata doesn't break */}
+        <input name="hasPermissionChance" type="hidden" value="true" />
+        <input name="shootingBefore" type="hidden" value="Не відомо" />
+        <input name="shootingDuring" type="hidden" value="Не відомо" />
+        <input name="shootingAfter" type="hidden" value="Не відомо" />
+
+        <Button type="submit">Додати кейс</Button>
+      </form>
+    );
+  }
+
+  // --- EDIT MODE: accordion sections with progress ---
+  const filledFields = countFilledFields(scoringInput, monitoring, metadata);
+  const totalFields = 10;
+  const progressPercent = Math.round((filledFields / totalFields) * 100);
+
   return (
     <form action={action} className="space-y-5">
       {caseItem ? <input name="caseId" type="hidden" value={caseItem.id} /> : null}
 
+      {/* Progress bar */}
+      <div className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium">Готовність до маркетингу</span>
+          <span className="text-muted-foreground">{filledFields}/{totalFields} полів</span>
+        </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Section 1: Object basics — always open */}
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
         <div className="mb-4 flex flex-col gap-3 border-b pb-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <h2 className="text-base font-semibold">Що це за обʼєкт</h2>
+            <h2 className="text-base font-semibold">Обʼєкт</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Заповніть коротку назву, опис, сегмент, місто і поточний статус. Місто можна вибрати зі списку або
-              вписати вручну.
+              Назва, опис, місто, сегмент і статус.
             </p>
           </div>
           <div className={`w-full rounded-md border px-3 py-2 md:w-52 ${getToneCardClass(getPriorityTone(priority))}`}>
@@ -130,100 +232,137 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         </div>
       </section>
 
+      {/* Section 2: Project stage — collapsible */}
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
-        <div className="mb-4 border-b pb-4">
-          <h2 className="text-base font-semibold">Стадія проєкту</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Оберіть, на якому етапі зараз проєкт. Коли проєкт переходить далі, менеджер просто оновлює стадію і дату.
-          </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-medium">
-            <span className="flex items-center gap-2">
-              Оплата / передоплата
-              <InfoHint label="Позначте, чи є передоплата, повна оплата або ще немає підтвердження. Це робочий орієнтир, а не оцінка якості кейсу." />
-            </span>
-            <select
-              className="mt-2 h-10 w-full rounded-md border bg-background px-3"
-              defaultValue={getMonitoringText(monitoring, "paymentStatus")}
-              name="paymentStatus"
-            >
-              <option value="">Не вказано</option>
-              <option value="Передоплата">Передоплата</option>
-              <option value="Оплата">Оплата</option>
-              <option value="Немає">Немає</option>
-            </select>
-          </label>
-          <StageDateFields defaultDate={stagePlannedDate} defaultStage={stage} />
-          <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
-            <CheckRow
-              defaultChecked={Boolean(monitoring.equipmentApproved)}
-              hint="Комплектація погоджена клієнтом або внутрішньо затверджена."
-              label="Комплектація затверджена"
-              name="equipmentApproved"
-            />
-            <CheckRow
-              defaultChecked={Boolean(monitoring.isHighProfile)}
-              hint="Якщо це відомий або популярний обʼєкт - ставимо так, якщо ні - ні."
-              label="Відомий обʼєкт"
-              name="isHighProfile"
-            />
-            <CheckRow
-              defaultChecked={Boolean(monitoring.bigCheck)}
-              hint="Дорогий обʼєкт: багато позицій у замовленні або проєкт на велику суму."
-              label="Дорогий обʼєкт"
-              name="bigCheck"
-            />
+        <details className="group" open>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Стадія проєкту</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Етап, оплата і планова дата.
+              </p>
+            </div>
+            <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
+            <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
+          </summary>
+          <div className="mt-4 grid gap-4 border-t pt-4 md:grid-cols-2">
+            <label className="text-sm font-medium">
+              <span className="flex items-center gap-2">
+                Оплата / передоплата
+                <InfoHint label="Позначте, чи є передоплата, повна оплата або ще немає підтвердження." />
+              </span>
+              <select
+                className="mt-2 h-10 w-full rounded-md border bg-background px-3"
+                defaultValue={getMonitoringText(monitoring, "paymentStatus")}
+                name="paymentStatus"
+              >
+                <option value="">Не вказано</option>
+                <option value="Передоплата">Передоплата</option>
+                <option value="Оплата">Оплата</option>
+                <option value="Немає">Немає</option>
+              </select>
+            </label>
+            <StageDateFields defaultDate={stagePlannedDate} defaultStage={stage} />
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-3">
+              <CheckRow
+                defaultChecked={Boolean(monitoring.equipmentApproved)}
+                hint="Комплектація погоджена клієнтом або внутрішньо затверджена."
+                label="Комплектація затверджена"
+                name="equipmentApproved"
+              />
+              <CheckRow
+                defaultChecked={Boolean(monitoring.isHighProfile)}
+                hint="Якщо це відомий або популярний обʼєкт - ставимо так, якщо ні - ні."
+                label="Відомий обʼєкт"
+                name="isHighProfile"
+              />
+              <CheckRow
+                defaultChecked={Boolean(monitoring.bigCheck)}
+                hint="Дорогий обʼєкт: багато позицій у замовленні або проєкт на велику суму."
+                label="Дорогий обʼєкт"
+                name="bigCheck"
+              />
+            </div>
           </div>
-        </div>
+        </details>
       </section>
 
+      {/* Section 3: Shooting — collapsible */}
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
-        <div className="mb-4 border-b pb-4">
-          <h2 className="text-base font-semibold">Чи це кандидат на зйомку?</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Виберіть короткі відповіді і додайте факти там, де потрібен текст. Підказки біля назв пояснюють, що саме
-            мається на увазі.
-          </p>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <PermissionField
-            comment={scoringInput.permissionComment ?? getMonitoringText(monitoring, "permissionComment")}
-            value={permissionStatus}
-          />
-          {scoringCriteria
-            .filter((criterion) => !hiddenScoringFields.includes(criterion.key))
-            .map((criterion) =>
-              isTextScoringField(criterion.key) ? (
-                <ScoreTextField
-                  defaultValue={getScoringText(scoringInput, criterion.key)}
-                  description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
-                  key={criterion.key}
-                  label={criterion.shortLabel}
-                  name={criterion.key}
-                />
-              ) : (
-                <ScoreToggle
-                  defaultChecked={Boolean(scoringInput[criterion.key])}
-                  description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
-                  key={criterion.key}
-                  label={criterion.shortLabel}
-                  name={criterion.key}
-                />
-              ),
-            )}
-          <ShootingWindowBlock monitoring={monitoring} scoringInput={scoringInput} />
-        </div>
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Зйомка</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Дозвіл, що показати і вікна для зйомки.
+              </p>
+            </div>
+            <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
+            <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
+          </summary>
+          <div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-2">
+            <PermissionField
+              comment={scoringInput.permissionComment ?? getMonitoringText(monitoring, "permissionComment")}
+              value={permissionStatus}
+            />
+            <ScoreToggle
+              defaultChecked={Boolean(scoringInput.hasVisualShowcase)}
+              description="Є що показати: кухня, зона, процес, монтаж або навчання. Вага: +2 балів."
+              label="Є що показати"
+              name="hasVisualShowcase"
+            />
+            <ShootingWindowBlock monitoring={monitoring} scoringInput={scoringInput} />
+          </div>
+        </details>
       </section>
 
+      {/* Section 4: Marketing facts — collapsible */}
       <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
-        <details className="group" open={mode === "edit"}>
+        <details className="group">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Факти для маркетингу</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Задача, рішення, результат, особливість — для контенту.
+              </p>
+            </div>
+            <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
+            <span className="hidden text-sm font-medium text-primary group-open:inline">Сховати</span>
+          </summary>
+          <div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-2">
+            {scoringCriteria
+              .filter((criterion) => !hiddenScoringFields.includes(criterion.key) && criterion.key !== "hasVisualShowcase")
+              .map((criterion) =>
+                isTextScoringField(criterion.key) ? (
+                  <ScoreTextField
+                    defaultValue={getScoringText(scoringInput, criterion.key)}
+                    description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
+                    key={criterion.key}
+                    label={criterion.shortLabel}
+                    name={criterion.key}
+                  />
+                ) : (
+                  <ScoreToggle
+                    defaultChecked={Boolean(scoringInput[criterion.key])}
+                    description={`${criterion.fullLabel}. Вага: +${criterion.points} балів.`}
+                    key={criterion.key}
+                    label={criterion.shortLabel}
+                    name={criterion.key}
+                  />
+                ),
+              )}
+          </div>
+        </details>
+      </section>
+
+      {/* Section 5: Contacts — collapsible, closed by default */}
+      <section className="rounded-lg border bg-card p-4 shadow-sm md:p-5">
+        <details className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold">Контактна особа та додаткові відомості</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Контакти, джерело і службові нотатки. Можна заповнити пізніше.
+                Контакти, джерело і службові нотатки.
               </p>
             </div>
             <span className="text-sm font-medium text-primary group-open:hidden">Показати</span>
@@ -254,9 +393,29 @@ export function CaseForm({ mode, caseItem, segments, cities }: CaseFormProps) {
         </p>
       ) : null}
 
-      <Button type="submit">{mode === "create" ? "Додати кейс" : "Зберегти зміни"}</Button>
+      <Button type="submit">Зберегти зміни</Button>
     </form>
   );
+}
+
+// --- Helper: count filled scoring/marketing fields ---
+function countFilledFields(
+  scoringInput: Record<string, unknown>,
+  monitoring: Record<string, unknown>,
+  metadata: Record<string, unknown>,
+) {
+  let count = 0;
+  if (scoringInput.hasPermissionChance) count++;
+  if (scoringInput.hasVisualShowcase) count++;
+  if (typeof scoringInput.hasClientTask === "string" && scoringInput.hasClientTask) count++;
+  if (typeof scoringInput.hasSprofSolution === "string" && scoringInput.hasSprofSolution) count++;
+  if (typeof scoringInput.hasMetricOrEffect === "string" && scoringInput.hasMetricOrEffect) count++;
+  if (typeof scoringInput.hasVisualHook === "string" && scoringInput.hasVisualHook) count++;
+  if (monitoring.projectStage) count++;
+  if (monitoring.stagePlannedDate || monitoring.keyDate) count++;
+  if (typeof metadata.contactName === "string" && metadata.contactName) count++;
+  if (typeof metadata.source === "string" && metadata.source) count++;
+  return count;
 }
 
 function PermissionField({ comment, value }: { comment: string; value: string }) {
@@ -310,7 +469,7 @@ function ScoreToggle({
         <span className="text-xs text-muted-foreground">Так / Ні</span>
       </div>
       <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-        <span>Позначити “Так”</span>
+        <span>Позначити &ldquo;Так&rdquo;</span>
         <input className="size-4" defaultChecked={defaultChecked} name={name} type="checkbox" />
       </label>
     </div>

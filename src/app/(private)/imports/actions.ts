@@ -7,6 +7,7 @@ import type { AppRole } from "@/lib/auth/types";
 import { calculateCaseScore } from "@/lib/cases/scoring";
 import { readGoogleSheetRows } from "@/lib/imports/google-sheets";
 import { defaultSheetMapping, type PreviewRow, type SheetMapping } from "@/lib/imports/types";
+import { createNotification } from "@/lib/notifications/create";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readText(formData: FormData, key: string) {
@@ -186,8 +187,8 @@ async function classifyRow(
     return {
       ...row,
       index,
-      status: "вже імпортовано",
-      message: "Рядок уже був імпортований.",
+      status: "готовий до оновлення",
+      message: "Кейс був імпортований раніше. Дані будуть оновлені.",
       duplicateCaseId: imported.id,
     };
   }
@@ -205,8 +206,8 @@ async function classifyRow(
     return {
       ...row,
       index,
-      status: row.city && !city ? "помилка" : "можливий дубль",
-      message: row.city && !city ? "Місто не знайдено в довіднику." : "Схожий кейс уже існує.",
+      status: row.city && !city ? "помилка" : "готовий до оновлення",
+      message: row.city && !city ? "Місто не знайдено в довіднику." : "Знайдено схожий існуючий кейс. Дані будуть оновлені.",
       duplicateCaseId: possibleDuplicates?.[0]?.id,
     };
   }
@@ -239,11 +240,13 @@ export async function confirmImportAction(formData: FormData) {
   let failed = 0;
 
   for (const row of rows) {
-    if (!selectedRows.has(row.index) || row.status !== "новий") {
+    if (!selectedRows.has(row.index) || row.status === "помилка") {
       continue;
     }
 
-    const result = await importRow(row, user.id);
+    const result = row.status === "готовий до оновлення" && row.duplicateCaseId
+      ? await updateRow(row, user.id, row.duplicateCaseId)
+      : await importRow(row, user.id);
     if (result) {
       created += 1;
     } else {
@@ -342,36 +345,82 @@ async function importRow(row: PreviewRow, actorUserId: string) {
   return true;
 }
 
+async function updateRow(row: PreviewRow, actorUserId: string, caseId: string) {
+  const { supabase } = await getAdminContext();
+  const { data: city } = row.city
+    ? await supabase.from("cities").select("id").ilike("name", row.city).maybeSingle<{ id: string }>()
+    : { data: null };
+
+  const { data: existingCase } = await supabase.from("cases").select("metadata").eq("id", caseId).single();
+  if (!existingCase) return false;
+
+  const oldMetadata = (existingCase.metadata as Record<string, unknown>) || {};
+  const oldScoringInput = (oldMetadata.scoringInput as Record<string, unknown>) || {};
+
+  const scoringInput = {
+    ...oldScoringInput,
+    launchDate: (row.launchDate || oldScoringInput.launchDate) as string | undefined,
+    permissionStatus: (row.permissionStatus || oldScoringInput.permissionStatus) as string | undefined,
+  };
+  const scoring = calculateCaseScore(scoringInput);
+
+  const { error } = await supabase
+    .from("cases")
+    .update({
+      title: row.projectTitle,
+      summary: row.summary || undefined,
+      city_id: city?.id ?? undefined,
+      score: scoring.score,
+      metadata: {
+        ...oldMetadata,
+        clientName: row.clientName,
+        googleSheetRowId: row.googleSheetRowId,
+        scoringInput,
+        scoring,
+        priority: scoring.priority,
+        updatedViaImportAt: new Date().toISOString(),
+      },
+    })
+    .eq("id", caseId);
+
+  if (error) {
+    return false;
+  }
+
+  await supabase.from("case_activity_log").insert({
+    case_id: caseId,
+    actor_user_id: actorUserId,
+    action: "google_sheet_import.updated",
+    metadata: {
+      googleSheetRowId: row.googleSheetRowId,
+      clientName: row.clientName,
+    },
+  });
+
+  return true;
+}
+
 async function createImportErrorNotification(contextId: string, failedRows: number) {
   const { supabase, user } = await getAdminContext();
   const { data: admins } = await supabase
     .from("profiles")
-    .select("id,role")
+    .select("id")
     .eq("role", "admin")
     .eq("is_active", true);
 
-  const { data: event } = await supabase
-    .from("notification_events")
-    .insert({
-      type: "google_sheet_import_error",
-      title: "Помилки імпорту Google Sheets",
-      body: `Імпорт має помилки: ${failedRows} рядків потребують перевірки.`,
-      actor_user_id: user.id,
-      metadata: { contextId, failedRows },
-      dedupe_key: `google_sheet_import_error:${contextId}`,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (!event || !admins?.length) {
+  if (!admins?.length) {
     return;
   }
 
-  await supabase.from("notification_recipients").insert(
-    admins.map((admin) => ({
-      event_id: event.id,
-      recipient_user_id: admin.id,
-      recipient_role_snapshot: admin.role,
-    })),
-  );
+  await createNotification({
+    type: "google_sheet_import_error",
+    title: "Помилки імпорту Google Sheets",
+    body: `Імпорт має помилки: ${failedRows} рядків потребують перевірки.`,
+    caseId: null,
+    actorUserId: user.id,
+    recipientUserIds: admins.map((admin) => admin.id),
+    priority: "high",
+    metadata: { contextId, failedRows },
+    dedupeKey: `google_sheet_import_error:${contextId}`,
+  });
 }
